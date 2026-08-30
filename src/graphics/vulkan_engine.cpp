@@ -28,30 +28,7 @@ VulkanEngine::VulkanEngine(SDL_Window *p_window) {
 	window = p_window;
 }
 VulkanEngine::~VulkanEngine() {
-	if (device != VK_NULL_HANDLE) {
-		vkDeviceWaitIdle(device);
-
-		if (render_pass != VK_NULL_HANDLE) {
-			vkDestroyRenderPass(device, render_pass, nullptr);
-		}
-		if (pipeline_cache != VK_NULL_HANDLE) {
-			vkDestroyPipelineCache(device, pipeline_cache, nullptr);
-		}
-		if (descriptor_pool != VK_NULL_HANDLE) {
-			vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
-		}
-		if (allocator != VK_NULL_HANDLE) {
-			vmaDestroyAllocator(allocator);
-		}
-		if (surface != VK_NULL_HANDLE) {
-			vkDestroySurfaceKHR(instance, surface, nullptr);
-		}
-		vkDestroyDevice(device, nullptr);
-	}
-
-	if (instance != VK_NULL_HANDLE) {
-		vkDestroyInstance(instance, nullptr);
-	}
+	cleanup();
 }
 void VulkanEngine::cleanup() {
 	if (device != VK_NULL_HANDLE) {
@@ -92,22 +69,31 @@ bool VulkanEngine::pick_physical_device() {
 	std::vector<VkPhysicalDevice> physical_devices(physical_devices_count);
 	ERR_FAIL_VK_RET(vkEnumeratePhysicalDevices(instance, &physical_devices_count, physical_devices.data()), false, "Failed to enumerate physical devices.");
 
-	for (const VkPhysicalDevice &_physical_device : physical_devices) {
-		VkPhysicalDeviceProperties physical_device_properties;
-		vkGetPhysicalDeviceProperties(_physical_device, &physical_device_properties);
+	if (active_instance_extensions.contains(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+		for (const VkPhysicalDevice &_physical_device : physical_devices) {
+			VkPhysicalDeviceProperties2 physical_device_properties{};
+			physical_device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			vkGetPhysicalDeviceProperties2(_physical_device, &physical_device_properties);
 
-		if (physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-			physical_device = _physical_device;
-			goto end;
+			if (physical_device_properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+				physical_device = _physical_device;
+				break;
+			}
+		}
+	} else {
+		for (const VkPhysicalDevice &_physical_device : physical_devices) {
+			VkPhysicalDeviceProperties physical_device_properties;
+			vkGetPhysicalDeviceProperties(_physical_device, &physical_device_properties);
+
+			if (physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+				physical_device = _physical_device;
+				break;
+			}
 		}
 	}
-
-	physical_device = physical_devices[0];
-
-end:
-
-	// physical_device = ImGui_ImplVulkanH_SelectPhysicalDevice(instance);
-	// ERR_FAIL_NULL_RET(physical_device, false, "Failed to select physical device.");
+	if (physical_device == VK_NULL_HANDLE) {
+		physical_device = physical_devices[0];
+	}
 
 	uint32_t queue_family_properties_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_properties_count, nullptr);
@@ -122,10 +108,7 @@ end:
 			return true;
 		}
 	}
-
-	// queue_family = ImGui_ImplVulkanH_SelectQueueFamilyIndex(physical_device);
-	// ERR_FAIL_COND_RET(queue_family == (uint32_t)-1, false, "Failed to select a valid queue family.");
-	return true;
+	ERR_FAIL_MSG_RET(false, "Failed to select a queue family.");
 }
 bool VulkanEngine::create_device() {
 	float queue_priority = 1.0f;
@@ -144,18 +127,22 @@ bool VulkanEngine::create_device() {
 	device_create_info.queueCreateInfoCount = 1;
 	device_create_info.pEnabledFeatures = &physical_device_features;
 
-	std::vector<const char *> device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	std::vector<const char *> extensions;
 
 	uint32_t extension_properties_count;
 	ERR_FAIL_VK_RET(vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_properties_count, nullptr), false, "Faled to enumerate instance extensions.");
 	std::vector<VkExtensionProperties> extension_properties(extension_properties_count);
 	ERR_FAIL_VK_RET(vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_properties_count, extension_properties.data()), false, "Faled to enumerate instance extensions.");
-	ADD_EXT_IF_PRESENT(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, device_extensions, extension_properties);
-	ADD_ESSENTIAL_EXT_RET(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, device_extensions, extension_properties, false);
-	ADD_ESSENTIAL_EXT_RET(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, device_extensions, extension_properties, false);
 
-	device_create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
-	device_create_info.ppEnabledExtensionNames = device_extensions.data();
+	for (const char *const &ext_name : essential_device_extensions) {
+		ERR_FAIL_COND_SILENT_RET(!add_essential_extension(extension_properties, ext_name, true, extensions), false);
+	}
+	for (const char *const &ext_name : optional_device_extensions) {
+		add_optional_extension(extension_properties, ext_name, true, extensions);
+	}
+
+	device_create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+	device_create_info.ppEnabledExtensionNames = extensions.data();
 
 	ERR_FAIL_VK_RET(vkCreateDevice(physical_device, &device_create_info, nullptr, &device), false, "Failed to create logical device.");
 	ERR_FAIL_COND_RET(device == VK_NULL_HANDLE, false, "VkDevice is null, but create did not error.");
@@ -251,47 +238,86 @@ endloop:
 	return true;
 }
 bool VulkanEngine::create_render_pass() {
-	VkAttachmentDescription2 color_attachment{};
-	color_attachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
-	color_attachment.format = swapchain_format;
-	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	if (active_device_extensions.contains(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
+		VkAttachmentDescription2 color_attachment{};
+		color_attachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
+		color_attachment.format = swapchain_format;
+		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	VkAttachmentReference2 color_attachment_ref{};
-	color_attachment_ref.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-	color_attachment_ref.attachment = 0;
-	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	color_attachment_ref.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		VkAttachmentReference2 color_attachment_ref{};
+		color_attachment_ref.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+		color_attachment_ref.attachment = 0;
+		color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		color_attachment_ref.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	VkSubpassDescription2 subpass_description{};
-	subpass_description.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-	subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass_description.colorAttachmentCount = 1;
-	subpass_description.pColorAttachments = &color_attachment_ref;
+		VkSubpassDescription2 subpass_description{};
+		subpass_description.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
+		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass_description.colorAttachmentCount = 1;
+		subpass_description.pColorAttachments = &color_attachment_ref;
 
-	VkSubpassDependency2 subpass_dependency{};
-	subpass_dependency.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
-	subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	subpass_dependency.dstSubpass = 0;
-	subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpass_dependency.srcAccessMask = 0;
-	subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		VkSubpassDependency2 subpass_dependency{};
+		subpass_dependency.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
+		subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		subpass_dependency.dstSubpass = 0;
+		subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		subpass_dependency.srcAccessMask = 0;
+		subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-	VkRenderPassCreateInfo2 render_pass_create_info{};
-	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
-	render_pass_create_info.attachmentCount = 1;
-	render_pass_create_info.pAttachments = &color_attachment;
-	render_pass_create_info.subpassCount = 1;
-	render_pass_create_info.pSubpasses = &subpass_description;
-	render_pass_create_info.dependencyCount = 1;
-	render_pass_create_info.pDependencies = &subpass_dependency;
-	ERR_FAIL_VK_RET(vkCreateRenderPass2(device, &render_pass_create_info, nullptr, &render_pass), false, "Failed to create render pass.");
+		VkRenderPassCreateInfo2 render_pass_create_info{};
+		render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
+		render_pass_create_info.attachmentCount = 1;
+		render_pass_create_info.pAttachments = &color_attachment;
+		render_pass_create_info.subpassCount = 1;
+		render_pass_create_info.pSubpasses = &subpass_description;
+		render_pass_create_info.dependencyCount = 1;
+		render_pass_create_info.pDependencies = &subpass_dependency;
+		ERR_FAIL_VK_RET(vkCreateRenderPass2(device, &render_pass_create_info, nullptr, &render_pass), false, "Failed to create render pass.");
+	} else {
+		VkAttachmentDescription color_attachment{};
+		color_attachment.format = swapchain_format;
+		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		VkAttachmentReference color_attachment_ref{};
+		color_attachment_ref.attachment = 0;
+		color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass_description{};
+		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass_description.colorAttachmentCount = 1;
+		subpass_description.pColorAttachments = &color_attachment_ref;
+
+		VkSubpassDependency subpass_dependency{};
+		subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		subpass_dependency.dstSubpass = 0;
+		subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		subpass_dependency.srcAccessMask = 0;
+		subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+		VkRenderPassCreateInfo render_pass_create_info{};
+		render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		render_pass_create_info.attachmentCount = 1;
+		render_pass_create_info.pAttachments = &color_attachment;
+		render_pass_create_info.subpassCount = 1;
+		render_pass_create_info.pSubpasses = &subpass_description;
+		render_pass_create_info.dependencyCount = 1;
+		render_pass_create_info.pDependencies = &subpass_dependency;
+		ERR_FAIL_VK_RET(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_pass), false, "Failed to create render pass.");
+	}
 	ERR_FAIL_COND_RET(render_pass == VK_NULL_HANDLE, false, "VkRenderPass is null, but create did not error.");
 	return true;
 }
@@ -353,13 +379,12 @@ bool VulkanEngine::create_instance() {
 	std::vector<VkExtensionProperties> extension_properties(extension_properties_count);
 	ERR_FAIL_VK_RET(vkEnumerateInstanceExtensionProperties(nullptr, &extension_properties_count, extension_properties.data()), false, "Faled to enumerate instance extensions.");
 
-	ADD_EXT_IF_PRESENT(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, extensions, extension_properties);
-	ADD_EXT_ALSO_IF_PRESENT(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, extensions, extension_properties, create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR);
-	ADD_ESSENTIAL_EXT_RET(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, extensions, extension_properties, false);
-#ifdef DEBUG
-	ADD_EXT_IF_PRESENT(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, extensions, extension_properties);
-	// ADD_EXT_IF_PRESENT(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, extensions, extension_properties);
-#endif
+	for (const char *const &ext_name : essential_instance_extensions) {
+		ERR_FAIL_COND_SILENT_RET(!add_essential_extension(extension_properties, ext_name, false, extensions), false);
+	}
+	for (const char *const &ext_name : optional_instance_extensions) {
+		add_optional_extension(extension_properties, ext_name, false, extensions);
+	}
 
 	create_info.enabledExtensionCount = extensions.size();
 	create_info.ppEnabledExtensionNames = extensions.data();
@@ -376,6 +401,30 @@ bool VulkanEngine::is_extension_available(std::vector<VkExtensionProperties> &p_
 		if (strcmp(extension_properties.extensionName, p_extension) == 0) {
 			return true;
 		}
+	}
+	return false;
+}
+bool VulkanEngine::add_essential_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions) {
+	if (likely(is_extension_available(p_extension_properties, p_extension))) {
+		r_extensions.push_back(p_extension);
+		if (p_device) {
+			active_device_extensions.insert(p_extension);
+		} else {
+			active_instance_extensions.insert(p_extension);
+		}
+		return true;
+	}
+	ERR_FAIL_MSG_RET(false, std::string("Missing essential ").append(p_extension).append(" extension."));
+}
+bool VulkanEngine::add_optional_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions) {
+	if (likely(is_extension_available(p_extension_properties, p_extension))) {
+		r_extensions.push_back(p_extension);
+		if (p_device) {
+			active_device_extensions.insert(p_extension);
+		} else {
+			active_instance_extensions.insert(p_extension);
+		}
+		return true;
 	}
 	return false;
 }

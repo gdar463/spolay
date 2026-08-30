@@ -23,37 +23,32 @@
 
 #include <SDL3/SDL.h>
 
+#include <set>
 #include <vector>
 
 #include "error_macros.hpp"
 #include "vma.hpp"
 
-#define ADD_EXT_IF_PRESENT(m_ext_name, m_extensions, m_extensions_avaiable) \
-	if (likely(is_extension_available(m_extensions_avaiable, m_ext_name))) { \
-		m_extensions.push_back(m_ext_name); \
-	} else \
-		_err_print_error(__FUNCTION__, __FILE__, __LINE__, "Extension " _STR(m_ext_name) " not found.", "")
+const std::vector<const char *> essential_instance_extensions{
+	VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, // used in VulkanEngine::create_swapchain
+};
 
-#define ADD_EXT_ALSO_IF_PRESENT(m_ext_name, m_extensions, m_extensions_avaiable, m_on_found) \
-	if (likely(is_extension_available(m_extensions_avaiable, m_ext_name))) { \
-		m_extensions.push_back(m_ext_name); \
-		m_on_found; \
-	} else \
-		_err_print_error(__FUNCTION__, __FILE__, __LINE__, "Extension " _STR(m_ext_name) " not found.", "")
+const std::vector<const char *> essential_device_extensions{
+	// VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME, // needed for app to work decently
+};
 
-#define ADD_ESSENTIAL_EXT(m_ext_name, m_extensions, m_extensions_avaiable) \
-	if (likely(is_extension_available(m_extensions_avaiable, m_ext_name))) { \
-		m_extensions.push_back(m_ext_name); \
-	} else { \
-		ERR_FAIL_MSG("Missing essential " m_ext_name " extension."); \
-	}
+const std::vector<const char *> optional_instance_extensions{
+	VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, // used in VulkanEngine::pick_physical_device
+#ifdef DEBUG
+	VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
+};
 
-#define ADD_ESSENTIAL_EXT_RET(m_ext_name, m_extensions, m_extensions_avaiable, m_retval) \
-	if (likely(is_extension_available(m_extensions_avaiable, m_ext_name))) { \
-		m_extensions.push_back(m_ext_name); \
-	} else { \
-		ERR_FAIL_MSG_RET(m_retval, "Missing essential " m_ext_name " extension."); \
-	}
+const std::vector<const char *> optional_device_extensions{
+	// VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+	VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, // used in VulkanEngine::create_render_pass
+};
 
 class VulkanEngine {
 public:
@@ -70,6 +65,10 @@ public:
 	VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
 	std::vector<uint8_t> pipeline_data;
 	VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
+
+	std::set<const char *> active_instance_extensions;
+	std::set<const char *> active_device_extensions;
+
 	VkRenderPass render_pass = VK_NULL_HANDLE;
 	uint32_t min_image_count = 2;
 	VkFormat swapchain_format = VK_FORMAT_UNDEFINED;
@@ -77,7 +76,6 @@ public:
 	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	bool swapchain_rebuild = false;
-	// VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 
 	bool create_instance();
 	bool create_surface();
@@ -97,4 +95,6 @@ private:
 	bool check_validation_layer_support();
 #endif
 	bool is_extension_available(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension);
+	bool add_essential_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions);
+	bool add_optional_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions);
 };
