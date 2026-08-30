@@ -65,8 +65,6 @@ int main() {
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_surface(), -1);
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_pipeline_cache(), -1);
 	vk_engine.min_image_count = 3;
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_swapchain(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_render_pass(), -1);
 
 	ImGuiEngine imgui_engine{ &state, &vk_engine };
 	state.imgui_engine = &imgui_engine;
@@ -74,6 +72,8 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(window, &w, &h), -1, SDL_GetError());
 	ERR_FAIL_COND_RET_SDL(!SDL_SetWindowPosition(window, w, h), -1, SDL_GetError());
 	ERR_FAIL_COND_RET_SDL(!SDL_ShowWindow(window), -1, SDL_GetError());
+	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.setup_swapchain(), -1);
+	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_swapchain(w, h), -1);
 
 	ERR_FAIL_COND_SILENT_RET_SDL(!imgui_engine.setup(), -1);
 	ERR_FAIL_COND_SILENT_RET_SDL(!imgui_engine.setup_window(w, h), -1);

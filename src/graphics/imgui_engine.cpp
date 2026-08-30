@@ -41,7 +41,7 @@ void ImGuiEngine::cleanup() {
 }
 void ImGuiEngine::cleanup_window() {
 	if (window.Swapchain) {
-		ImGui_ImplVulkanH_DestroyWindow(vk->instance, vk->device, &window, nullptr);
+		vk->cleanup_window();
 	}
 }
 
@@ -57,7 +57,7 @@ bool ImGuiEngine::setup_window(int p_width, int p_height) {
 bool ImGuiEngine::create_window(int p_width, int p_height) {
 	ERR_FAIL_COND_RET(vk->min_image_count < 2, false, "Incorrect min_image_count currently " + itos(vk->min_image_count) + " should be at least 2.");
 	ImGui_ImplVulkan_SetMinImageCount(vk->min_image_count);
-	ImGui_ImplVulkanH_CreateOrResizeWindow(vk->instance, vk->physical_device, vk->device, &window, vk->queue_family, nullptr, p_width, p_height, vk->min_image_count, 0);
+	vk->create_window(p_width, p_height);
 	window.FrameIndex = 0;
 	vk->swapchain = window.Swapchain;
 	vk->swapchain_rebuild = false;

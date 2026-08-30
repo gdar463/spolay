@@ -140,6 +140,13 @@ bool VulkanEngine::create_device() {
 	for (const char *const &ext_name : optional_device_extensions) {
 		add_optional_extension(extension_properties, ext_name, true, extensions);
 	}
+	if (active_device_extensions.contains(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME)) {
+		VkPhysicalDeviceSynchronization2Features synchronization_2_features{};
+		synchronization_2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+		synchronization_2_features.synchronization2 = VK_TRUE;
+
+		device_create_info.pNext = &synchronization_2_features;
+	}
 
 	device_create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 	device_create_info.ppEnabledExtensionNames = extensions.data();
@@ -173,17 +180,17 @@ bool VulkanEngine::create_descriptor_pool() {
 		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE * 2 },
 	};
 
-	VkDescriptorPoolCreateInfo pool_info = {};
-	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	pool_info.maxSets = 0;
+	VkDescriptorPoolCreateInfo pool_create_info = {};
+	pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_create_info.maxSets = 0;
 	for (const VkDescriptorPoolSize &pool_size : pool_sizes) {
-		pool_info.maxSets += pool_size.descriptorCount;
+		pool_create_info.maxSets += pool_size.descriptorCount;
 	}
-	pool_info.poolSizeCount = std::size(pool_sizes);
-	pool_info.pPoolSizes = pool_sizes;
+	pool_create_info.poolSizeCount = std::size(pool_sizes);
+	pool_create_info.pPoolSizes = pool_sizes;
 
-	ERR_FAIL_VK_RET(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptor_pool), false, "Failed to create descriptor pool.");
+	ERR_FAIL_VK_RET(vkCreateDescriptorPool(device, &pool_create_info, nullptr, &descriptor_pool), false, "Failed to create descriptor pool.");
 	ERR_FAIL_COND_RET(descriptor_pool == VK_NULL_HANDLE, false, "VkRenderPass is null, but create did not error.");
 	return true;
 }
@@ -193,48 +200,6 @@ bool VulkanEngine::create_pipeline_cache() {
 	pipeline_cache_create_info.initialDataSize = 0;
 	ERR_FAIL_VK_RET(vkCreatePipelineCache(device, &pipeline_cache_create_info, nullptr, &pipeline_cache), false, "Failed to create pipeline cache.");
 	ERR_FAIL_COND_RET(pipeline_cache == VK_NULL_HANDLE, false, "VkPipelineCache is null, but create did not error.");
-	return true;
-}
-bool VulkanEngine::create_swapchain() {
-	VkBool32 res;
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family, surface, &res), false, "Physical device doesn't support WSI.");
-	const std::vector<VkFormat> request_surface_info_formats{ VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
-	const VkColorSpaceKHR request_surface_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-
-	VkPhysicalDeviceSurfaceInfo2KHR surface_info{};
-	surface_info.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR;
-	surface_info.surface = surface;
-	uint32_t surface_formats_count = 0;
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &surface_info, &surface_formats_count, nullptr), false, "Failed to get physical device surface formats.");
-	std::vector<VkSurfaceFormat2KHR> surface_formats(surface_formats_count);
-	for (uint32_t i = 0; i < surface_formats_count; i++) {
-		surface_formats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR;
-	}
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &surface_info, &surface_formats_count, surface_formats.data()), false, "Failed to get physical device surface formats.");
-
-	if (surface_formats_count == 1) {
-		if (surface_formats[0].surfaceFormat.format == VK_FORMAT_UNDEFINED) {
-			swapchain_format = request_surface_info_formats[0];
-			swapchain_color_space = request_surface_color_space;
-		} else {
-			swapchain_format = surface_formats[0].surfaceFormat.format;
-			swapchain_color_space = surface_formats[0].surfaceFormat.colorSpace;
-		}
-	} else {
-		for (uint32_t i = 0; i < request_surface_info_formats.size(); i++) {
-			for (uint32_t j = 0; j < surface_formats_count; j++) {
-				if (surface_formats[j].surfaceFormat.format == request_surface_info_formats[i] && surface_formats[j].surfaceFormat.colorSpace == request_surface_color_space) {
-					swapchain_format = surface_formats[j].surfaceFormat.format;
-					swapchain_color_space = surface_formats[j].surfaceFormat.colorSpace;
-					goto endloop;
-				}
-			}
-		}
-		swapchain_format = surface_formats[0].surfaceFormat.format;
-		swapchain_color_space = surface_formats[0].surfaceFormat.colorSpace;
-	}
-endloop:
-	swapchain_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
 	return true;
 }
 bool VulkanEngine::create_render_pass() {
@@ -320,6 +285,321 @@ bool VulkanEngine::create_render_pass() {
 	}
 	ERR_FAIL_COND_RET(render_pass == VK_NULL_HANDLE, false, "VkRenderPass is null, but create did not error.");
 	return true;
+}
+bool VulkanEngine::setup_swapchain() {
+	VkBool32 res;
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family, surface, &res), false, "Physical device doesn't support WSI.");
+	const std::vector<VkFormat> request_surface_info_formats{ VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
+	const VkColorSpaceKHR request_surface_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
+	surface_info.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR;
+	surface_info.surface = surface;
+	uint32_t surface_formats_count = 0;
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &surface_info, &surface_formats_count, nullptr), false, "Failed to get physical device surface formats.");
+	std::vector<VkSurfaceFormat2KHR> surface_formats(surface_formats_count);
+	for (uint32_t i = 0; i < surface_formats_count; i++) {
+		surface_formats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR;
+	}
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &surface_info, &surface_formats_count, surface_formats.data()), false, "Failed to get physical device surface formats.");
+
+	if (surface_formats_count == 1) {
+		if (surface_formats[0].surfaceFormat.format == VK_FORMAT_UNDEFINED) {
+			swapchain_format = request_surface_info_formats[0];
+			swapchain_color_space = request_surface_color_space;
+		} else {
+			swapchain_format = surface_formats[0].surfaceFormat.format;
+			swapchain_color_space = surface_formats[0].surfaceFormat.colorSpace;
+		}
+	} else {
+		for (uint32_t i = 0; i < request_surface_info_formats.size(); i++) {
+			for (uint32_t j = 0; j < surface_formats_count; j++) {
+				if (surface_formats[j].surfaceFormat.format == request_surface_info_formats[i] && surface_formats[j].surfaceFormat.colorSpace == request_surface_color_space) {
+					swapchain_format = surface_formats[j].surfaceFormat.format;
+					swapchain_color_space = surface_formats[j].surfaceFormat.colorSpace;
+					goto endloop;
+				}
+			}
+		}
+		swapchain_format = surface_formats[0].surfaceFormat.format;
+		swapchain_color_space = surface_formats[0].surfaceFormat.colorSpace;
+	}
+endloop:
+	swapchain_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+	return true;
+}
+bool VulkanEngine::create_swapchain(int p_width, int p_height) {
+	VkSwapchainKHR old_swapchain = swapchain;
+	swapchain = VK_NULL_HANDLE;
+	ERR_FAIL_VK_RET(vkDeviceWaitIdle(device), false, "Failed to wait for idle.");
+
+	if (old_swapchain != VK_NULL_HANDLE) {
+		for (uint32_t i = 0; i < swapchain_images_count; i++) {
+			frames[i].cleanup(device);
+		}
+		for (uint32_t i = 0; i < semaphore_count; i++) {
+			frame_semaphores[i].cleanup(device);
+		}
+		frames.clear();
+		frame_semaphores.clear();
+		swapchain_images_count = 0;
+		if (render_pass) {
+			vkDestroyRenderPass(device, render_pass, nullptr);
+		}
+		render_pass = VK_NULL_HANDLE;
+	}
+
+	// TODO: Check for support of 2 and remove from essential extensions
+	VkSurfaceCapabilities2KHR capabilities{};
+	capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceCapabilities2KHR(physical_device, &surface_info, &capabilities), false, "Failed to get physical device surface capabilities.");
+	VkSurfaceCapabilitiesKHR surface_capabilities = capabilities.surfaceCapabilities;
+
+	VkSwapchainCreateInfoKHR swapchain_create_info{};
+	swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchain_create_info.surface = surface;
+	if (min_image_count < surface_capabilities.minImageCount) {
+		swapchain_create_info.minImageCount = surface_capabilities.minImageCount;
+	} else if (surface_capabilities.maxImageCount != 0 && min_image_count > surface_capabilities.maxImageCount) {
+		swapchain_create_info.minImageCount = surface_capabilities.maxImageCount;
+	} else {
+		swapchain_create_info.minImageCount = min_image_count;
+	}
+	swapchain_create_info.imageFormat = swapchain_format;
+	swapchain_create_info.imageColorSpace = swapchain_color_space;
+	swapchain_create_info.imageArrayLayers = 1;
+	swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	swapchain_create_info.preTransform = (surface_capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) ? VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR : surface_capabilities.currentTransform;
+	if (surface_capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
+		swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	} else if (surface_capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR) {
+		swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+	} else {
+		ERR_FAIL_MSG_RET(false, "No supported composite alpha mode found.");
+	}
+	swapchain_create_info.presentMode = swapchain_present_mode;
+	swapchain_create_info.clipped = VK_TRUE;
+	swapchain_create_info.oldSwapchain = old_swapchain;
+	if (surface_capabilities.currentExtent.width == 0xffffffff) {
+		swapchain_create_info.imageExtent.width = p_width;
+		swapchain_create_info.imageExtent.height = p_height;
+	} else {
+		swapchain_create_info.imageExtent.width = surface_capabilities.currentExtent.width;
+		swapchain_create_info.imageExtent.height = surface_capabilities.currentExtent.height;
+	}
+	ERR_FAIL_VK_RET(vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain), false, "Failed to create swapchain.");
+
+	ERR_FAIL_VK_RET(vkGetSwapchainImagesKHR(device, swapchain, &swapchain_images_count, nullptr), false, "Failed to get swapchain images.");
+	std::vector<VkImage> swapchain_images(swapchain_images_count);
+	ERR_FAIL_VK_RET(vkGetSwapchainImagesKHR(device, swapchain, &swapchain_images_count, swapchain_images.data()), false, "Failed to get swapchain images.");
+
+	semaphore_count = swapchain_images_count + 1;
+	frames.resize(swapchain_images_count);
+	frame_semaphores.resize(semaphore_count);
+	memset(frames.data(), 0, frames.size() * sizeof(Frame));
+	memset(frame_semaphores.data(), 0, frame_semaphores.size() * sizeof(FrameSemaphores));
+	for (uint32_t i = 0; i < swapchain_images_count; i++) {
+		frames[i].buffer = swapchain_images[i];
+	}
+	if (old_swapchain) {
+		vkDestroySwapchainKHR(device, old_swapchain, nullptr);
+	}
+
+	// TODO: Disable for dynamic rendering
+	create_render_pass();
+
+	VkImageSubresourceRange image_range{};
+	image_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	image_range.baseMipLevel = 0;
+	image_range.levelCount = 1;
+	image_range.baseArrayLayer = 0;
+	image_range.layerCount = 1;
+
+	VkImageViewCreateInfo image_view_create_info{};
+	image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	image_view_create_info.format = swapchain_format;
+	image_view_create_info.components.r = VK_COMPONENT_SWIZZLE_R;
+	image_view_create_info.components.g = VK_COMPONENT_SWIZZLE_G;
+	image_view_create_info.components.b = VK_COMPONENT_SWIZZLE_B;
+	image_view_create_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	image_view_create_info.subresourceRange = image_range;
+	for (uint32_t i = 0; i < swapchain_images_count; i++) {
+		image_view_create_info.image = frames[i].buffer;
+		ERR_FAIL_VK_RET(vkCreateImageView(device, &image_view_create_info, nullptr, &frames[i].buffer_view), false, "Failed to create image view.");
+	}
+
+	// TODO: Disable for dynamic rendering
+	VkFramebufferCreateInfo framebuffer_create_info{};
+	framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebuffer_create_info.renderPass = render_pass;
+	framebuffer_create_info.attachmentCount = 1;
+	framebuffer_create_info.width = p_width;
+	framebuffer_create_info.height = p_height;
+	framebuffer_create_info.layers = 1;
+	for (uint32_t i = 0; i < swapchain_images_count; i++) {
+		framebuffer_create_info.pAttachments = &frames[i].buffer_view;
+		ERR_FAIL_VK_RET(vkCreateFramebuffer(device, &framebuffer_create_info, nullptr, &frames[i].frame_buffer), false, "Failed to create frame buffer.");
+	}
+	return true;
+}
+bool VulkanEngine::create_command_buffers() {
+	for (uint32_t i = 0; i < swapchain_images_count; i++) {
+		Frame *frame = &frames[i];
+
+		VkCommandPoolCreateInfo command_pool_create_info{};
+		command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		command_pool_create_info.flags = 0;
+		command_pool_create_info.queueFamilyIndex = queue_family;
+		ERR_FAIL_VK_RET(vkCreateCommandPool(device, &command_pool_create_info, nullptr, &frame->command_pool), false, "Failed to create command pool.");
+
+		VkCommandBufferAllocateInfo command_buffer_allocate_info{};
+		command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		command_buffer_allocate_info.commandPool = frame->command_pool;
+		command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		command_buffer_allocate_info.commandBufferCount = 1;
+		ERR_FAIL_VK_RET(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &frame->command_buffer), false, "Failed to allocate command buffer.");
+
+		VkFenceCreateInfo fence_create_info{};
+		fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		ERR_FAIL_VK_RET(vkCreateFence(device, &fence_create_info, nullptr, &frame->fence), false, "Failed to create fence.");
+	}
+
+	for (uint32_t i = 0; i < semaphore_count; i++) {
+		FrameSemaphores *semaphores = &frame_semaphores[i];
+
+		VkSemaphoreCreateInfo semaphore_create_info{};
+		semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		ERR_FAIL_VK_RET(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &semaphores->image_acquired_semaphore), false, "Failed to create image acquired semaphore.");
+		ERR_FAIL_VK_RET(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &semaphores->render_complete_sempahore), false, "Failed to create render complete semaphore.");
+	}
+	return true;
+}
+bool VulkanEngine::create_window(int p_width, int p_height) {
+	create_swapchain(p_width, p_height);
+	create_command_buffers();
+
+	VkCommandPool command_pool;
+	VkCommandPoolCreateInfo command_pool_create_info{};
+	command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	command_pool_create_info.queueFamilyIndex = queue_family;
+	ERR_FAIL_VK_RET(vkCreateCommandPool(device, &command_pool_create_info, nullptr, &command_pool), false, "Failed to create command pool.");
+
+	VkFence fence;
+	VkFenceCreateInfo fence_create_info{};
+	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	ERR_FAIL_VK_RET(vkCreateFence(device, &fence_create_info, nullptr, &fence), false, "Failed to create fence.");
+
+	VkCommandBuffer command_buffer;
+	VkCommandBufferAllocateInfo command_buffer_allocate_info{};
+	command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	command_buffer_allocate_info.commandPool = command_pool;
+	command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	command_buffer_allocate_info.commandBufferCount = 1;
+	ERR_FAIL_VK_RET(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &command_buffer), false, "Failed to allocate command buffer.");
+
+	VkCommandBufferBeginInfo command_buffer_begin_info{};
+	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	ERR_FAIL_VK_RET(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info), false, "Failed to begin commmand buffer.");
+
+	if (active_device_extensions.contains(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME)) {
+		VkImageMemoryBarrier2 barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.srcStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+		barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.layerCount = 1;
+
+		VkDependencyInfo dependency_info{};
+		dependency_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		dependency_info.bufferMemoryBarrierCount = 0;
+		dependency_info.memoryBarrierCount = 0;
+		dependency_info.imageMemoryBarrierCount = 1;
+		dependency_info.pImageMemoryBarriers = &barrier;
+		for (uint32_t i = 0; i < swapchain_images_count; i++) {
+			barrier.image = frames[i].buffer;
+			vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+		}
+	} else {
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.layerCount = 1;
+		for (uint32_t i = 0; i < swapchain_images_count; i++) {
+			barrier.image = frames[i].buffer;
+			vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		}
+	}
+
+	ERR_FAIL_VK_RET(vkEndCommandBuffer(command_buffer), false, "Failed to end command buffer.");
+
+	if (active_device_extensions.contains(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME)) {
+		VkCommandBufferSubmitInfo command_buffer_submit_info{};
+		command_buffer_submit_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+		command_buffer_submit_info.commandBuffer = command_buffer;
+
+		VkSubmitInfo2 submit_info{};
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		submit_info.commandBufferInfoCount = 1;
+		submit_info.pCommandBufferInfos = &command_buffer_submit_info;
+		submit_info.signalSemaphoreInfoCount = 0;
+		submit_info.waitSemaphoreInfoCount = 0;
+
+		ERR_FAIL_VK_RET(vkQueueSubmit2(queue, 1, &submit_info, fence), false, "Failed to submit to queue.");
+	} else {
+		VkSubmitInfo submit_info{};
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.commandBufferCount = 1;
+		submit_info.pCommandBuffers = &command_buffer;
+
+		ERR_FAIL_VK_RET(vkQueueSubmit(queue, 1, &submit_info, fence), false, "Failed to submit to queue.");
+	}
+	ERR_FAIL_VK_RET(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX), false, "Failed to wait for fence.");
+	ERR_FAIL_VK_RET(vkResetFences(device, 1, &fence), false, "Failed to reset fence.");
+
+	ERR_FAIL_VK_RET(vkResetCommandPool(device, command_pool, 0), false, "Failed to reset command pool.");
+
+	vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+	vkDestroyCommandPool(device, command_pool, nullptr);
+	vkDestroyFence(device, fence, nullptr);
+	command_pool = VK_NULL_HANDLE;
+	command_buffer = VK_NULL_HANDLE;
+	fence = VK_NULL_HANDLE;
+	return true;
+}
+void VulkanEngine::cleanup_window() {
+	vkDeviceWaitIdle(device);
+	vkQueueWaitIdle(queue);
+
+	for (uint32_t i = 0; i < swapchain_images_count; i++) {
+		frames[i].cleanup(device);
+	}
+	for (uint32_t i = 0; i < semaphore_count; i++) {
+		frame_semaphores[i].cleanup(device);
+	}
+	frames.clear();
+	frame_semaphores.clear();
+	swapchain_images_count = 0;
+	if (render_pass) {
+		vkDestroyRenderPass(device, render_pass, nullptr);
+	}
+	if (swapchain) {
+		vkDestroySwapchainKHR(device, swapchain, nullptr);
+	}
+	render_pass = VK_NULL_HANDLE;
+	swapchain = VK_NULL_HANDLE;
 }
 
 #ifdef DEBUG

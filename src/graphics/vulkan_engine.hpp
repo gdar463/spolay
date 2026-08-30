@@ -27,11 +27,10 @@
 #include <vector>
 
 #include "error_macros.hpp"
+#include "graphics/vulkan/frame.hpp"
 #include "vma.hpp"
 
-const std::vector<const char *> essential_instance_extensions{
-	VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, // used in VulkanEngine::create_swapchain
-};
+const std::vector<const char *> essential_instance_extensions{};
 
 const std::vector<const char *> essential_device_extensions{
 	// VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
@@ -40,6 +39,7 @@ const std::vector<const char *> essential_device_extensions{
 
 const std::vector<const char *> optional_instance_extensions{
 	VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, // used in VulkanEngine::pick_physical_device
+	VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, // used in VulkanEngine::create_swapchain
 #ifdef DEBUG
 	VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
@@ -48,6 +48,7 @@ const std::vector<const char *> optional_instance_extensions{
 const std::vector<const char *> optional_device_extensions{
 	// VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
 	VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, // used in VulkanEngine::create_render_pass
+	VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 };
 
 class VulkanEngine {
@@ -69,13 +70,20 @@ public:
 	std::set<const char *> active_instance_extensions;
 	std::set<const char *> active_device_extensions;
 
+	VkPhysicalDeviceSurfaceInfo2KHR surface_info{};
+
 	VkRenderPass render_pass = VK_NULL_HANDLE;
-	uint32_t min_image_count = 2;
+	uint32_t min_image_count = 3;
 	VkFormat swapchain_format = VK_FORMAT_UNDEFINED;
 	VkColorSpaceKHR swapchain_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+	uint32_t swapchain_images_count;
 	bool swapchain_rebuild = false;
+
+	std::vector<Frame> frames;
+	std::vector<FrameSemaphores> frame_semaphores;
+	uint32_t semaphore_count = min_image_count + 1;
 
 	bool create_instance();
 	bool create_surface();
@@ -84,9 +92,13 @@ public:
 	bool create_allocator();
 	bool create_descriptor_pool();
 	bool create_pipeline_cache();
-	bool create_swapchain();
 	bool create_render_pass();
+	bool setup_swapchain();
+	bool create_swapchain(int p_width, int p_height);
+	bool create_command_buffers();
+	bool create_window(int p_width, int p_height);
 
+	void cleanup_window();
 	void cleanup();
 	~VulkanEngine();
 
