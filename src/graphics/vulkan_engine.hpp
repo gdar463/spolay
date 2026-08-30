@@ -82,7 +82,7 @@ public:
 	bool pick_physical_device();
 	bool create_device();
 	bool create_allocator();
-	bool create_ImGui_pool();
+	bool create_descriptor_pool();
 	bool create_pipeline_cache();
 	bool create_swapchain();
 	bool create_render_pass();

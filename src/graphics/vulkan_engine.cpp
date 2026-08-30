@@ -167,7 +167,7 @@ bool VulkanEngine::create_allocator() {
 	ERR_FAIL_COND_RET(allocator == VK_NULL_HANDLE, false, "VmaAllocator is null, but create did not error.");
 	return true;
 }
-bool VulkanEngine::create_ImGui_pool() {
+bool VulkanEngine::create_descriptor_pool() {
 	VkDescriptorPoolSize pool_sizes[] = {
 		{ VK_DESCRIPTOR_TYPE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE * 2 },
 		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE * 2 },

@@ -61,7 +61,7 @@ int main() {
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.pick_physical_device(), -1);
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_device(), -1);
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_allocator(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_ImGui_pool(), -1);
+	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_descriptor_pool(), -1);
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_surface(), -1);
 	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_pipeline_cache(), -1);
 	vk_engine.min_image_count = 3;
