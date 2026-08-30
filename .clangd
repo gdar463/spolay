@@ -1,0 +1,33 @@
+###
+### Adapted from GodotEngine (https://github.com/godotengine/godot)
+### under the MIT License (https://github.com/godotengine/godot/blob/5ec4857b340b6284a18b49b2eda462bd250f219a/LICENSE.txt)
+###
+
+---
+CompileFlags:
+  Add:
+    - -ferror-limit=100
+Completion:
+  HeaderInsertion: Never
+---
+If:
+  PathMatch: .*\.(h|hh|hpp|hxx|inc)
+
+# Exclude certain, noisy warnings that lack full context. Replace with lowered severity if/when
+# clangd gets diagnostic severity support. (See: https://github.com/clangd/clangd/issues/1937)
+CompileFlags:
+  Add:
+    - -Wno-unneeded-internal-declaration
+    - -Wno-unused-const-variable
+    - -Wno-unused-function
+    - -Wno-unused-variable
+
+---
+# Suppress warnings for third-party or partial code.
+
+If:
+  PathMatch:
+    - thirdparty/.*
+
+Diagnostics:
+  Suppress: "*"
