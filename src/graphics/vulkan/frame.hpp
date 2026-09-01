@@ -25,8 +25,8 @@ struct Frame {
 	VkCommandPool command_pool = VK_NULL_HANDLE;
 	VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 	VkFence fence = VK_NULL_HANDLE;
-	VkImage buffer = VK_NULL_HANDLE;
-	VkImageView buffer_view = VK_NULL_HANDLE;
+	VkImage image = VK_NULL_HANDLE;
+	VkImageView image_view = VK_NULL_HANDLE;
 	VkFramebuffer frame_buffer = VK_NULL_HANDLE;
 
 	void cleanup(VkDevice p_device) {
@@ -44,29 +44,29 @@ struct Frame {
 			command_pool = VK_NULL_HANDLE;
 		}
 
-		if (buffer_view != VK_NULL_HANDLE) {
-			vkDestroyImageView(p_device, buffer_view, nullptr);
-			buffer_view = VK_NULL_HANDLE;
-		}
 		if (frame_buffer != VK_NULL_HANDLE) {
 			vkDestroyFramebuffer(p_device, frame_buffer, nullptr);
 			frame_buffer = VK_NULL_HANDLE;
+		}
+		if (image_view != VK_NULL_HANDLE) {
+			vkDestroyImageView(p_device, image_view, nullptr);
+			image_view = VK_NULL_HANDLE;
 		}
 	}
 };
 
 struct FrameSemaphores {
-	VkSemaphore image_acquired_semaphore = VK_NULL_HANDLE;
-	VkSemaphore render_complete_sempahore = VK_NULL_HANDLE;
+	VkSemaphore image_acquired = VK_NULL_HANDLE;
+	VkSemaphore render_complete = VK_NULL_HANDLE;
 
 	void cleanup(VkDevice p_device) {
-		if (image_acquired_semaphore != VK_NULL_HANDLE) {
-			vkDestroySemaphore(p_device, image_acquired_semaphore, nullptr);
-			image_acquired_semaphore = VK_NULL_HANDLE;
+		if (image_acquired != VK_NULL_HANDLE) {
+			vkDestroySemaphore(p_device, image_acquired, nullptr);
+			image_acquired = VK_NULL_HANDLE;
 		}
-		if (render_complete_sempahore != VK_NULL_HANDLE) {
-			vkDestroySemaphore(p_device, render_complete_sempahore, nullptr);
-			render_complete_sempahore = VK_NULL_HANDLE;
+		if (render_complete != VK_NULL_HANDLE) {
+			vkDestroySemaphore(p_device, render_complete, nullptr);
+			render_complete = VK_NULL_HANDLE;
 		}
 	}
 };

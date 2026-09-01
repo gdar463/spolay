@@ -34,8 +34,6 @@ _NO_INLINE_ void _err_print_error(const char *p_function, const char *p_file, in
 
 #define ERR_FAIL_COND_SDL(m_cond, m_msg) ERR_FAIL_COND_PRE(m_cond, CLEANUP_SDL(), m_msg)
 #define ERR_FAIL_COND_RET_SDL(m_cond, m_retval, m_msg) ERR_FAIL_COND_PRERET(m_cond, m_retval, CLEANUP_SDL(), m_msg)
-#define ERR_FAIL_COND_SILENT_SDL(m_cond) ERR_FAIL_COND_SILENT_PRE(m_cond, CLEANUP_SDL())
-#define ERR_FAIL_COND_SILENT_RET_SDL(m_cond, m_retval) ERR_FAIL_COND_SILENT_PRERET(m_cond, m_retval, CLEANUP_SDL())
 #pragma endregion "SDL error_macros"
 
 #pragma region "VK error_macros"
@@ -45,12 +43,12 @@ _NO_INLINE_ void _err_print_error(const char *p_function, const char *p_file, in
  * If `m_vk_res` is an error, prints `m_msg`, and the current function returns.
  */
 #define ERR_FAIL_VK(m_vk_res, m_msg) \
-	if (VkResult err = m_vk_res; unlikely(err != VK_SUCCESS)) { \
-		if (err < 0) { \
-			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(err)).append("."), m_msg); \
+	if (VkResult __err = m_vk_res; unlikely(__err != VK_SUCCESS)) { \
+		if (__err < 0) { \
+			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(__err)).append("."), m_msg); \
 			return; \
 		} else { \
-			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(err)).append("."), ""); \
+			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(__err)).append("."), ""); \
 		} \
 	} else \
 		((void)0)
@@ -61,58 +59,16 @@ _NO_INLINE_ void _err_print_error(const char *p_function, const char *p_file, in
  * If `m_vk_res` is an error, prints `m_msg`, and the current function returns `m_retval`.
  */
 #define ERR_FAIL_VK_RET(m_vk_res, m_retval, m_msg) \
-	if (VkResult err = m_vk_res; unlikely(err != VK_SUCCESS)) { \
-		if (err < 0) { \
-			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(err)).append("."), m_msg); \
+	if (VkResult __err = m_vk_res; unlikely(__err != VK_SUCCESS)) { \
+		if (__err < 0) { \
+			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(__err)).append("."), m_msg); \
 			return m_retval; \
 		} else { \
-			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(err)).append("."), ""); \
+			_err_print_error(__FUNCTION__, __FILE__, __LINE__, std::string("Call \"" _STR(m_vk_res) "\" returned ").append(itos(__err)).append("."), ""); \
 		} \
 	} else \
 		((void)0)
 #pragma endregion "VK error_macros"
-
-/**
- * Ensures `m_cond` is true.
- * If `m_cond` is false, the current function returns.
- */
-#define ERR_FAIL_COND_SILENT(m_cond) \
-	if (unlikely(m_cond)) { \
-		return; \
-	} else \
-		((void)0)
-
-/**
- * Ensures `m_cond` is true.
- * If `m_cond` is false, the current function returns `m_retval`.
- */
-#define ERR_FAIL_COND_SILENT_RET(m_cond, m_retval) \
-	if (unlikely(m_cond)) { \
-		return m_retval; \
-	} else \
-		((void)0)
-
-/**
- * Ensures `m_cond` is true.
- * If `m_cond` is false, runs `m_on_fail`, and the current function returns.
- */
-#define ERR_FAIL_COND_SILENT_PRE(m_cond, m_on_fail) \
-	if (unlikely(m_cond)) { \
-		m_on_fail; \
-		return; \
-	} else \
-		((void)0)
-
-/**
- * Ensures `m_cond` is true.
- * If `m_cond` is false, runs `m_on_fail`, the current function returns `m_retval`.
- */
-#define ERR_FAIL_COND_SILENT_PRERET(m_cond, m_retval, m_on_fail) \
-	if (unlikely(m_cond)) { \
-		m_on_fail; \
-		return m_retval; \
-	} else \
-		((void)0)
 
 /**
  * Prints `m_msg` and the current functions returns.

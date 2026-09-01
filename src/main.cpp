@@ -22,7 +22,6 @@
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
-#include <imgui_impl_vulkan.h>
 
 #include "error_macros.hpp"
 #include "graphics/imgui_engine.hpp"
@@ -32,12 +31,17 @@ AppState state{};
 
 void SDL_AppQuit() {
 	if (state.window) {
-		if (state.vk_engine && state.vk_engine->device) {
+		if (state.vk_engine && state.vk_engine->device != VK_NULL_HANDLE) {
+			if (state.vk_engine->queue != VK_NULL_HANDLE) {
+				vkQueueWaitIdle(state.vk_engine->queue);
+			}
 			vkDeviceWaitIdle(state.vk_engine->device);
 			if (state.imgui_engine) {
 				state.imgui_engine->cleanup();
-				state.imgui_engine->cleanup_window();
+				ImGui_ImplSDL3_Shutdown();
+				ImGui::DestroyContext();
 			}
+			ERR_FAIL_COND(!state.vk_engine->device, "VkDevice already destroyed?");
 			state.vk_engine->cleanup();
 		}
 		SDL_DestroyWindow(state.window);
@@ -57,26 +61,22 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(volkInitialize() != VK_SUCCESS, -1, "Failed to initialize volk. Is Vulkan installed?");
 	state.vk_engine = &vk_engine;
 
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_instance(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.pick_physical_device(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_device(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_allocator(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_descriptor_pool(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_surface(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_pipeline_cache(), -1);
-	vk_engine.min_image_count = 3;
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_instance(), -1, "Failed to create instance.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.pick_physical_device(), -1, "Failed to pick physical device.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_device(), -1, "Failed to create device.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_allocator(), -1, "Failed to create allocator.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_surface(), -1, "Failed to create surface.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_pipeline_cache(), -1, "Failed to create pipeline cache.");
 
 	ImGuiEngine imgui_engine{ &state, &vk_engine };
 	state.imgui_engine = &imgui_engine;
 	int w, h;
 	ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(window, &w, &h), -1, SDL_GetError());
-	ERR_FAIL_COND_RET_SDL(!SDL_SetWindowPosition(window, w, h), -1, SDL_GetError());
 	ERR_FAIL_COND_RET_SDL(!SDL_ShowWindow(window), -1, SDL_GetError());
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.setup_swapchain(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!vk_engine.create_swapchain(w, h), -1);
+	ERR_FAIL_COND_RET_SDL(!vk_engine.setup_swapchain(), -1, "Failed to setup swapchain.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_window(w, h), -1, "Failed to create window resources.");
 
-	ERR_FAIL_COND_SILENT_RET_SDL(!imgui_engine.setup(), -1);
-	ERR_FAIL_COND_SILENT_RET_SDL(!imgui_engine.setup_window(w, h), -1);
+	ERR_FAIL_COND_RET_SDL(!imgui_engine.setup(), -1, "Failed to setup imgui engine.");
 
 	while (!state.done) {
 		SDL_Event event;
@@ -97,11 +97,14 @@ int main() {
 
 		int fb_w, fb_h;
 		ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(window, &fb_w, &fb_h), 999, SDL_GetError());
-		if (fb_w > 0 && fb_h > 0 && (vk_engine.swapchain_rebuild || imgui_engine.window.Width != fb_w || imgui_engine.window.Height != fb_h)) {
-			imgui_engine.create_window(fb_w, fb_h);
+		if (fb_w > 0 && fb_h > 0 && (vk_engine.window.swapchain_rebuild || vk_engine.window.width != fb_w || vk_engine.window.height != fb_h)) {
+			vk_engine.create_window(fb_w, fb_h);
 		}
 
-		ImGui_ImplVulkan_NewFrame();
+		ERR_FAIL_COND_RET_SDL(!imgui_engine.new_frame(), 1, "Failed to create new frame.");
+		if (!vk_engine.window.frame_acquired) {
+			continue;
+		}
 		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
 
@@ -125,7 +128,7 @@ int main() {
 			ImGui::SameLine();
 			ImGui::Text("counter = %d", counter);
 
-			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imgui_engine.io.Framerate, imgui_engine.io.Framerate);
+			// ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imgui_engine.io.Framerate, imgui_engine.io.Framerate);
 			ImGui::End();
 		}
 
@@ -142,12 +145,12 @@ int main() {
 		ImDrawData *draw_data = ImGui::GetDrawData();
 		const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 		if (!is_minimized) {
-			imgui_engine.window.ClearValue.color.float32[0] = state.clear_color.x * state.clear_color.w;
-			imgui_engine.window.ClearValue.color.float32[1] = state.clear_color.y * state.clear_color.w;
-			imgui_engine.window.ClearValue.color.float32[2] = state.clear_color.z * state.clear_color.w;
-			imgui_engine.window.ClearValue.color.float32[3] = state.clear_color.w;
-			imgui_engine.frame_render(draw_data);
-			imgui_engine.frame_present();
+			vk_engine.window.clear_value.color.float32[0] = state.clear_color.x * state.clear_color.w;
+			vk_engine.window.clear_value.color.float32[1] = state.clear_color.y * state.clear_color.w;
+			vk_engine.window.clear_value.color.float32[2] = state.clear_color.z * state.clear_color.w;
+			vk_engine.window.clear_value.color.float32[3] = state.clear_color.w;
+			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_render(draw_data, vk_engine.window.width, vk_engine.window.height), 1, "Failed to render frame.");
+			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_present(), 1, "Failed to present frame to queue.");
 		}
 	}
 
