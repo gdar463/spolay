@@ -506,10 +506,9 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 			VmaAllocationCreateInfo allocation_create_info{};
 			allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
 			allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-			VmaAllocationInfo allocation_info{};
-			ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &rb->vertex_buffer, &rb->vertex_allocation, &allocation_info), false, "Failed to create vertex buffer");
+			ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &rb->vertex_buffer, &rb->vertex_allocation, nullptr), false, "Failed to create vertex buffer");
 			DEBUG_NAME_VK(rb->vertex_buffer, VK_OBJECT_TYPE_BUFFER, "Viewport/RenderBuffers/" + itos(wrb->index) + "/Buffer Vertex");
-			rb->vertex_buffer_size = allocation_info.size;
+			rb->vertex_buffer_size = vertex_size;
 		}
 		if (rb->index_buffer == VK_NULL_HANDLE || rb->index_buffer_size < index_size) {
 			if (rb->index_buffer != VK_NULL_HANDLE) {
@@ -525,10 +524,9 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 			VmaAllocationCreateInfo allocation_create_info{};
 			allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
 			allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-			VmaAllocationInfo allocation_info{};
-			ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &rb->index_buffer, &rb->index_allocation, &allocation_info), false, "Failed to create vertex buffer");
+			ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &rb->index_buffer, &rb->index_allocation, nullptr), false, "Failed to create index buffer");
 			DEBUG_NAME_VK(rb->index_buffer, VK_OBJECT_TYPE_BUFFER, "Viewport/RenderBuffers/" + itos(wrb->index) + "/Buffer Index");
-			rb->index_buffer_size = allocation_info.size;
+			rb->index_buffer_size = index_size;
 		}
 
 		ImDrawVert *vtx_dst = nullptr;
