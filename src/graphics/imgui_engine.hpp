@@ -22,8 +22,9 @@
 #include <volk.h>
 
 #include <imgui.h>
-#include <imgui_impl_vulkan.h>
 
+#include "graphics/imgui/backend_data.hpp"
+#include "graphics/vulkan/render_buffers.hpp"
 #include "graphics/vulkan_engine.hpp"
 
 class ImGuiEngine {
@@ -32,18 +33,28 @@ public:
 
 	AppState *state = nullptr;
 	VulkanEngine *vk = nullptr;
-	ImGui_ImplVulkanH_Window window{};
-	ImGuiIO io;
+	Window *window = nullptr;
 	ImGuiContext *context = nullptr;
 
-	bool setup_window(int p_width, int p_height);
-	bool create_window(int p_width, int p_height);
 	bool setup();
+	bool setup_objects();
 
-	void frame_render(ImDrawData *p_draw_data);
-	void frame_present();
+	static void draw_callback__reset_render_state(const ImDrawList *, const ImDrawCmd *);
+	static void draw_callback__set_sampler_linear(const ImDrawList *, const ImDrawCmd *);
+	static void draw_callback__set_sampler_nearest(const ImDrawList *, const ImDrawCmd *);
+
+	bool new_frame();
+	bool frame_render(ImDrawData *p_draw_data, int p_width, int p_height);
+	bool render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_command_buffer, int p_width, int p_height);
+	bool frame_present();
 
 	void cleanup();
-	void cleanup_window();
 	~ImGuiEngine();
+
+private:
+	static BackendData *get_backend_data();
+
+	bool acquire_next_image();
+	bool update_texture(ImTextureData *p_texture);
+	void setup_render_state(VkCommandBuffer p_command_buffer, ImDrawData *p_draw_data, RenderBuffers *p_rb, int p_width, int p_height);
 };
