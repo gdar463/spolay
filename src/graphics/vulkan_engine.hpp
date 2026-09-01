@@ -141,7 +141,9 @@ public:
 
 private:
 #ifdef DEBUG
+#ifndef NO_VALIDATION_LAYER
 	bool check_validation_layer_support();
+#endif
 #endif
 	bool is_extension_available(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension);
 	bool add_essential_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions);

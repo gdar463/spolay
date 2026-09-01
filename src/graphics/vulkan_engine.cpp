@@ -462,6 +462,7 @@ bool VulkanEngine::create_window(int p_width, int p_height) {
 }
 
 #ifdef DEBUG
+#ifndef NO_VALIDATION_LAYER
 #define VK_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
 
 const std::vector<const char *> debug_layers = {
@@ -482,6 +483,7 @@ bool VulkanEngine::check_validation_layer_support() {
 	}
 	return false;
 }
+#endif
 
 #ifndef NO_DEBUG_UTILS
 void VulkanEngine::set_debug_name(uint64_t p_handle, VkObjectType p_type, const char *p_name) {
@@ -563,14 +565,18 @@ bool VulkanEngine::create_instance() {
 	create_info.pApplicationInfo = &app_info;
 
 #ifdef DEBUG
+#ifndef NO_VALIDATION_LAYER
 	if (check_validation_layer_support()) {
 		create_info.enabledLayerCount = debug_layers.size();
 		create_info.ppEnabledLayerNames = debug_layers.data();
 	} else {
+#endif
+#endif
 		create_info.enabledLayerCount = 0;
+#ifdef DEBUG
+#ifndef NO_VALIDATION_LAYER
 	}
-#else
-	create_info.enabledLayerCount = 0;
+#endif
 #endif
 
 	uint32_t sdl_extenstions_count;

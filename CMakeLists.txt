@@ -81,6 +81,12 @@ source_group(
 
 if(DEBUG)
     target_compile_definitions(spolay PRIVATE DEBUG)
+    if(NO_VALIDATION_LAYER)
+        target_compile_definitions(spolay PRIVATE NO_VALIDATION_LAYER)
+    endif()
+    if(NO_DEBUG_UTILS)
+        target_compile_definitions(spolay PRIVATE NO_DEBUG_UTILS)
+    endif()
 endif()
 
 # if(WIN32)
