@@ -51,14 +51,18 @@ add_subdirectory(third_party)
 #     "${PROJECT_SOURCE_DIR}/include/spolay/*.hpp")
 file(GLOB_RECURSE SPOLAY_SOURCES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp")
+file(GLOB_RECURSE SPOLAY_ASSETS_HEADERS CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/assets/*.hpp")
 
 add_executable(spolay
     # ${SPOLAY_HEADERS}
-    ${SPOLAY_SOURCES})
+    ${SPOLAY_SOURCES}
+    ${SPOLAY_ASSETS_HEADERS})
 
 target_include_directories(spolay PRIVATE
     include
-    src)
+    src
+    assets)
 
 target_link_libraries(spolay PRIVATE
     stb
@@ -80,6 +84,10 @@ source_group(
     TREE "${PROJECT_SOURCE_DIR}/src"
     PREFIX "Source Files"
     FILES ${SPOLAY_SOURCES})
+source_group(
+    TREE "${PROJECT_SOURCE_DIR}/assets"
+    PREFIX "Assets Headers Files"
+    FILES ${SPOLAY_ASSETS_HEADERS})
 
 if(DEBUG)
     target_compile_definitions(spolay PRIVATE DEBUG)
