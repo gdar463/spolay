@@ -72,6 +72,7 @@ target_link_libraries(spolay PRIVATE
     vma
     glm::glm
     imgui
+    zlib
     ${LIBROMFS_LIBRARY})
 
 target_compile_features(spolay PUBLIC cxx_std_23)
