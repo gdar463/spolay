@@ -1,5 +1,8 @@
 add_compile_options(-w -O0 -g)
 
+add_library(stb INTERFACE)
+target_include_directories(stb SYSTEM INTERFACE stb/)
+
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(sdl)

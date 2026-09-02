@@ -61,6 +61,7 @@ target_include_directories(spolay PRIVATE
     src)
 
 target_link_libraries(spolay PRIVATE
+    stb
     SDL3::SDL3
     Vulkan::Vulkan
     volk::volk
