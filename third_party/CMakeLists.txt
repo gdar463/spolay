@@ -17,8 +17,7 @@ file(GLOB IMGUI_SOURCES
     ${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_tables.cpp
     ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp)
+    ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp)
 
 add_library(imgui STATIC ${IMGUI_SOURCES})
 target_compile_definitions(imgui PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK VK_NO_PROTOTYPES)
