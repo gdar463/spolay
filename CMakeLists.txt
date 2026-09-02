@@ -67,7 +67,8 @@ target_link_libraries(spolay PRIVATE
     volk::volk
     vma
     glm::glm
-    imgui)
+    imgui
+    ${LIBROMFS_LIBRARY})
 
 target_compile_features(spolay PUBLIC cxx_std_23)
 

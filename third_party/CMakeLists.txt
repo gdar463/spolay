@@ -28,3 +28,7 @@ target_include_directories(imgui SYSTEM PUBLIC
     ${IMGUI_DIR} 
     ${IMGUI_DIR}/backends)
 target_link_libraries(imgui PRIVATE SDL3::SDL3 volk::volk Vulkan::Vulkan)
+
+set(LIBROMFS_PROJECT_NAME "spolay")
+set(LIBROMFS_RESOURCE_LOCATION "${PROJECT_SOURCE_DIR}/assets")
+add_subdirectory(romfs)
