@@ -60,11 +60,21 @@ bool AssetLoader::load_textures(ImGuiEngine *p_imgui) {
 	return true;
 }
 
-void AssetLoader::cleanup() {
-	for (uint8_t *font : AssetLoader::fonts) {
-		delete[] font;
+void AssetLoader::cleanup(VulkanEngine *p_vk) {
+	if (!AssetLoader::fonts.empty()) {
+		for (uint8_t *font : AssetLoader::fonts) {
+			delete[] font;
+		}
+		AssetLoader::fonts.clear();
 	}
-	AssetLoader::fonts.clear();
+
+	if (!AssetLoader::textures.empty()) {
+		for (std::pair<const char *, Texture *> texture : AssetLoader::textures) {
+			texture.second->cleanup(p_vk->device, p_vk->allocator, ImGuiEngine::get_backend_data()->descriptor_pool);
+			delete texture.second;
+		}
+		AssetLoader::textures.clear();
+	}
 }
 
 Texture *operator""_loaded(const char *p_path, size_t) {

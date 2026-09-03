@@ -53,9 +53,9 @@ public:
 	void cleanup();
 	~ImGuiEngine();
 
-private:
 	static BackendData *get_backend_data();
 
+private:
 	bool acquire_next_image();
 	bool update_texture(ImTextureData *p_texture);
 	void setup_render_state(VkCommandBuffer p_command_buffer, ImDrawData *p_draw_data, RenderBuffers *p_rb, int p_width, int p_height);

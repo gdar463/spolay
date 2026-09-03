@@ -33,7 +33,7 @@ public:
 	static bool load_fonts();
 	static bool load_textures(ImGuiEngine *p_imgui);
 
-	static void cleanup();
+	static void cleanup(VulkanEngine *p_vk);
 };
 
 Texture *operator""_loaded(const char *p_path, size_t p_size);

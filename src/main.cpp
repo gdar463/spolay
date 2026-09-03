@@ -41,6 +41,7 @@ void SDL_AppQuit() {
 			}
 			vkDeviceWaitIdle(state.vk_engine->device);
 			if (state.imgui_engine) {
+				AssetLoader::cleanup(state.vk_engine);
 				state.imgui_engine->cleanup();
 				ImGui_ImplSDL3_Shutdown();
 				ImGui::DestroyContext();
@@ -50,9 +51,6 @@ void SDL_AppQuit() {
 		}
 		SDL_DestroyWindow(state.window);
 		SDL_Quit();
-	}
-	if (AssetLoader::fonts.size() > 0) {
-		AssetLoader::cleanup();
 	}
 }
 
