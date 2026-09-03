@@ -24,32 +24,34 @@
 std::vector<uint8_t *> AssetLoader::fonts{};
 std::unordered_map<const char *, Texture *> AssetLoader::textures{};
 
-const std::vector<const char *> initial_fonts{
-	FONTS_NERDFONT
+const std::pair<const char *, bool> initial_fonts[]{
+	{ FONTS_NUNITO, false },
+	{ FONTS_NERDFONT, true }
 };
 
 bool AssetLoader::load_fonts() {
 	ImGuiIO &io = ImGui::GetIO();
-	for (const char *const font_path : initial_fonts) {
-		romfs::Resource font_resource = romfs::get(font_path);
+	for (const std::pair<const char *, bool> font_pair : initial_fonts) {
+		romfs::Resource font_resource = romfs::get(font_pair.first);
 		uint8_t *font_data = new uint8_t[font_resource.size()]{};
 		memcpy(font_data, font_resource.data<uint8_t>(), font_resource.size());
 		ImFontConfig font_config{};
 		font_config.FontDataOwnedByAtlas = false;
+		font_config.MergeMode = font_pair.second;
 		ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)font_data, font_resource.size(), 1.f, &font_config);
-		ERR_FAIL_NULL_PRERET(font, false, delete[] font_data, "Failed to load font \"" + std::string(font_path) + "\"");
-		ERR_FAIL_COND_PRERET(!font->IsLoaded(), false, delete[] font_data, "Failed to load font \"" + std::string(font_path) + "\"");
+		ERR_FAIL_NULL_PRERET(font, false, delete[] font_data, "Failed to load font \"" + std::string(font_pair.first) + "\"");
+		ERR_FAIL_COND_PRERET(!font->IsLoaded(), false, delete[] font_data, "Failed to load font \"" + std::string(font_pair.first) + "\"");
 		AssetLoader::fonts.push_back(font_data);
 	}
 	return true;
 }
 
-const std::vector<const char *> initial_textures{
+const char *const initial_textures[]{
 	TEXTURES_GUI_HAMBURGER
 };
 
 bool AssetLoader::load_textures(ImGuiEngine *p_imgui) {
-	for (const char *texture_path : initial_textures) {
+	for (const char *const texture_path : initial_textures) {
 		romfs::Resource texture_resource = romfs::get(texture_path);
 		Texture *texture = p_imgui->load_texture(texture_resource.data<uint8_t>(), texture_resource.size());
 		ERR_FAIL_NULL_RET(texture, false, "Failed to load texture \"" + std::string(texture_path) + "\".");

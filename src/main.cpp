@@ -60,7 +60,7 @@ int main() {
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
 
 	state.main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(1280_scaled), (int)(720_scaled), SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS);
+	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(1280_scaled), (int)(720_scaled), SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	ERR_FAIL_NULL_RET_SDL(window, -1, SDL_GetError());
 	state.window = window;
 

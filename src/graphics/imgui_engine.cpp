@@ -71,14 +71,14 @@ bool ImGuiEngine::setup() {
 
 	ImGuiStyle &style = ImGui::GetStyle();
 	style.ScaleAllSizes(state->main_scale);
-	style.FontSizeBase = 16.f;
+	style.FontSizeBase = 18.f;
+	style.FontScaleDpi = 2.f;
 
 	ImGui_ImplSDL3_InitForVulkan(state->window);
 
 	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigDpiScaleFonts = true;
-	io.Fonts->AddFontDefaultVector();
 
 	ERR_FAIL_COND_RET(io.BackendRendererUserData, false, "Already initialized backend renderer.");
 	BackendData *bd = new BackendData();

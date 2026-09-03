@@ -19,6 +19,7 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#define FONTS_NUNITO "fonts/Nunito.ttf"
 #define FONTS_NERDFONT "fonts/SymbolsNerdFont.ttf"
 
 #define ICON_VS_CHROME_CLOSE "\xee\xaa\xb8"
