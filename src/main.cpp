@@ -51,6 +51,9 @@ void SDL_AppQuit() {
 		SDL_DestroyWindow(state.window);
 		SDL_Quit();
 	}
+	if (AssetLoader::fonts.size() > 0) {
+		AssetLoader::cleanup();
+	}
 }
 
 int main() {

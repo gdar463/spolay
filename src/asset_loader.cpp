@@ -21,6 +21,7 @@
 
 #include <romfs/romfs.hpp>
 
+std::vector<uint8_t *> AssetLoader::fonts{};
 std::unordered_map<const char *, Texture *> AssetLoader::textures{};
 
 const std::vector<const char *> initial_fonts{
@@ -31,7 +32,14 @@ bool AssetLoader::load_fonts() {
 	ImGuiIO &io = ImGui::GetIO();
 	for (const char *const font_path : initial_fonts) {
 		romfs::Resource font_resource = romfs::get(font_path);
-		ERR_FAIL_NULL_RET(io.Fonts->AddFontFromMemoryTTF((void *)font_resource.data(), font_resource.size()), false, "Failed to load font \"" + std::string(font_path) + "\"");
+		uint8_t *font_data = new uint8_t[font_resource.size()]{};
+		memcpy(font_data, font_resource.data<uint8_t>(), font_resource.size());
+		ImFontConfig font_config{};
+		font_config.FontDataOwnedByAtlas = false;
+		ImFont *font = io.Fonts->AddFontFromMemoryTTF((void *)font_data, font_resource.size(), 1.f, &font_config);
+		ERR_FAIL_NULL_PRERET(font, false, delete[] font_data, "Failed to load font \"" + std::string(font_path) + "\"");
+		ERR_FAIL_COND_PRERET(!font->IsLoaded(), false, delete[] font_data, "Failed to load font \"" + std::string(font_path) + "\"");
+		AssetLoader::fonts.push_back(font_data);
 	}
 	return true;
 }
@@ -48,6 +56,13 @@ bool AssetLoader::load_textures(ImGuiEngine *p_imgui) {
 		AssetLoader::textures.insert({ texture_path, texture });
 	}
 	return true;
+}
+
+void AssetLoader::cleanup() {
+	for (uint8_t *font : AssetLoader::fonts) {
+		delete[] font;
+	}
+	AssetLoader::fonts.clear();
 }
 
 Texture *operator""_loaded(const char *p_path, size_t) {

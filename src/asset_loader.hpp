@@ -27,10 +27,13 @@
 
 class AssetLoader {
 public:
+	static std::vector<uint8_t *> fonts;
 	static std::unordered_map<const char *, Texture *> textures;
 
 	static bool load_fonts();
 	static bool load_textures(ImGuiEngine *p_imgui);
+
+	static void cleanup();
 };
 
 Texture *operator""_loaded(const char *p_path, size_t p_size);
