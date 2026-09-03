@@ -161,6 +161,7 @@ int main() {
 
 					if (ImGui::MenuItemEx("Close", ICON_VS_CHROME_CLOSE, "Alt+F4")) {
 						CLEANUP_SDL();
+						return 0;
 					}
 					ImGui::EndPopup();
 				}
@@ -197,6 +198,7 @@ int main() {
 
 				if (ImGui::Button(ICON_VS_CHROME_CLOSE, buttonSize)) {
 					CLEANUP_SDL();
+					return 0;
 				}
 
 				ImGui::PopStyleColor(5);
