@@ -26,6 +26,9 @@
 #include "vma.hpp"
 
 struct Texture {
+#ifdef DEBUG
+	const char *path = nullptr;
+#endif
 	VmaAllocation allocation = VK_NULL_HANDLE;
 	VkImage image = VK_NULL_HANDLE;
 	VkImageView image_view = VK_NULL_HANDLE;
@@ -38,6 +41,11 @@ struct Texture {
 	}
 
 	void cleanup(VkDevice p_device, VmaAllocator p_allocator, VkDescriptorPool p_descriptor_pool) {
+#ifdef DEBUG
+		if (path != nullptr) {
+			delete[] path;
+		}
+#endif
 		if (descriptor_set != VK_NULL_HANDLE) {
 			vkFreeDescriptorSets(p_device, p_descriptor_pool, 1, &descriptor_set);
 			descriptor_set = VK_NULL_HANDLE;

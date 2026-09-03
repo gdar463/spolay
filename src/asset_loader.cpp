@@ -55,6 +55,10 @@ bool AssetLoader::load_textures(ImGuiEngine *p_imgui) {
 		romfs::Resource texture_resource = romfs::get(texture_path);
 		Texture *texture = p_imgui->load_texture(texture_resource.data<uint8_t>(), texture_resource.size());
 		ERR_FAIL_NULL_RET(texture, false, "Failed to load texture \"" + std::string(texture_path) + "\".");
+#ifdef DEBUG
+		texture->path = new char[strlen(texture_path)]{};
+		texture->path = strdup(texture_path);
+#endif
 		AssetLoader::textures.insert({ texture_path, texture });
 	}
 	return true;

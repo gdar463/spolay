@@ -42,6 +42,8 @@
 #define DEBUG_INSERT_QUEUE_MARKER_VK(m_name, ...) vk->insert_debug_queue_label(m_name, ImVec4(__VA_ARGS__))
 #define DEBUG_END_QUEUE_REGION() end_debug_queue_region()
 #define DEBUG_END_QUEUE_REGION_VK() vk->end_debug_queue_region()
+
+#define DEBUG_NAME_VMA(m_allocator, m_allocation, m_name) vmaSetAllocationName(m_allocator, m_allocation, std::string(m_name).c_str())
 #else
 #define DEBUG_NAME(m__, m___, m___)
 #define DEBUG_NAME_VK(m__, m___, m___)
@@ -51,6 +53,8 @@
 #define DEBUG_INSERT_QUEUE_MARKER_VK(m__, m___)
 #define DEBUG_END_QUEUE_REGION()
 #define DEBUG_END_QUEUE_REGION_VK()
+
+#define DEBUG_NAME_VMA(m__, m___, m____)
 #endif
 #else
 #define DEBUG_NAME(m__, m___, m___)
@@ -61,6 +65,8 @@
 #define DEBUG_INSERT_QUEUE_MARKER_VK(m__, m___)
 #define DEBUG_END_QUEUE_REGION()
 #define DEBUG_END_QUEUE_REGION_VK()
+
+#define DEBUG_NAME_VMA(m__, m___, m____)
 #endif
 
 const std::vector<const char *> essential_instance_extensions{};

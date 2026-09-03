@@ -500,6 +500,7 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 			allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 			ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &rb->vertex_buffer, &rb->vertex_allocation, nullptr), false, "Failed to create vertex buffer");
 			DEBUG_NAME_VK(rb->vertex_buffer, VK_OBJECT_TYPE_BUFFER, "Viewport/RenderBuffers/" + itos(wrb->index) + "/Buffer Vertex");
+			DEBUG_NAME_VMA(vk->allocator, rb->vertex_allocation, "Viewport/RenderBuffers/" + itos(wrb->index) + "/Allocation Vertex");
 			rb->vertex_buffer_size = vertex_size;
 		}
 		if (rb->index_buffer == VK_NULL_HANDLE || rb->index_buffer_size < index_size) {
@@ -518,6 +519,7 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 			allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 			ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &rb->index_buffer, &rb->index_allocation, nullptr), false, "Failed to create index buffer");
 			DEBUG_NAME_VK(rb->index_buffer, VK_OBJECT_TYPE_BUFFER, "Viewport/RenderBuffers/" + itos(wrb->index) + "/Buffer Index");
+			DEBUG_NAME_VMA(vk->allocator, rb->index_allocation, "Viewport/RenderBuffers/" + itos(wrb->index) + "/Allocation Index");
 			rb->index_buffer_size = index_size;
 		}
 
@@ -702,9 +704,10 @@ bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
 		write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		write_descriptor_set.pImageInfo = &descriptor_image_info;
 		vkUpdateDescriptorSets(vk->device, 1, &write_descriptor_set, 0, nullptr);
-		DEBUG_NAME_VK(bd_texture->image, VK_OBJECT_TYPE_IMAGE, "Textures/" + itos((uint64_t)bd_texture->descriptor_set) + "/Image");
-		DEBUG_NAME_VK(bd_texture->image_view, VK_OBJECT_TYPE_IMAGE_VIEW, "Textures/" + itos((uint64_t)bd_texture->descriptor_set) + "/ImageView");
-		DEBUG_NAME_VK(bd_texture->descriptor_set, VK_OBJECT_TYPE_DESCRIPTOR_SET, "Textures/" + itos((uint64_t)bd_texture->descriptor_set) + "/DescriptorSet");
+		DEBUG_NAME_VK(bd_texture->image, VK_OBJECT_TYPE_IMAGE, "Textures/" + itos((uint64_t)bd_texture) + "/Image");
+		DEBUG_NAME_VK(bd_texture->image_view, VK_OBJECT_TYPE_IMAGE_VIEW, "Textures/" + itos((uint64_t)bd_texture) + "/ImageView");
+		DEBUG_NAME_VK(bd_texture->descriptor_set, VK_OBJECT_TYPE_DESCRIPTOR_SET, "Textures/" + itos((uint64_t)bd_texture) + "/DescriptorSet");
+		DEBUG_NAME_VMA(vk->allocator, bd_texture->allocation, "Textures/" + itos((uint64_t)bd_texture) + "/Allocation");
 
 		p_texture->SetTexID((ImTextureID)bd_texture->descriptor_set);
 		p_texture->BackendUserData = bd_texture;
@@ -735,7 +738,8 @@ bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
 		allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
 		allocation_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 		ERR_FAIL_VK_RET(vmaCreateBuffer(vk->allocator, &buffer_create_info, &allocation_create_info, &upload_buffer, &upload_buffer_allocation, nullptr), false, "Failed to allocate upload buffer.");
-		DEBUG_NAME_VK(upload_buffer, VK_OBJECT_TYPE_BUFFER, "update_texture/upload/" + itos((uint64_t)bd_texture->descriptor_set) + "/Buffer");
+		DEBUG_NAME_VK(upload_buffer, VK_OBJECT_TYPE_BUFFER, "update_texture/upload/" + itos((uint64_t)bd_texture) + "/Buffer");
+		DEBUG_NAME_VMA(vk->allocator, upload_buffer_allocation, "update_texture/upload/" + itos((uint64_t)bd_texture) + "/Allocation");
 
 		char *map = nullptr;
 		ERR_FAIL_VK_RET(vmaMapMemory(vk->allocator, upload_buffer_allocation, (void **)(&map)), false, "Failed to map upload buffer.");

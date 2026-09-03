@@ -23,6 +23,10 @@
 
 #include <cstring>
 
+#ifdef DEBUG
+#include <iostream>
+#endif
+
 VulkanEngine::VulkanEngine(SDL_Window *p_window) {
 	sdl_window = p_window;
 }
@@ -37,6 +41,12 @@ void VulkanEngine::cleanup() {
 				vkDestroyPipelineCache(device, pipeline_cache, nullptr);
 			}
 			if (allocator != VK_NULL_HANDLE) {
+#ifdef DEBUG
+				char *stats_string = nullptr;
+				vmaBuildStatsString(allocator, &stats_string, VK_TRUE);
+				std::cout << "VmaStats: " << stats_string << std::endl;
+				vmaFreeStatsString(allocator, stats_string);
+#endif
 				vmaDestroyAllocator(allocator);
 			}
 			if (surface != VK_NULL_HANDLE) {
