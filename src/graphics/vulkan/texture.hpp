@@ -21,6 +21,8 @@
 
 #include <volk.h>
 
+#include <imgui.h>
+
 #include "vma.hpp"
 
 struct Texture {
@@ -28,6 +30,12 @@ struct Texture {
 	VkImage image = VK_NULL_HANDLE;
 	VkImageView image_view = VK_NULL_HANDLE;
 	VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
+	int width = 0;
+	int height = 0;
+
+	ImTextureID get_imgui_id() {
+		return (ImTextureID)descriptor_set;
+	}
 
 	void cleanup(VkDevice p_device, VmaAllocator p_allocator, VkDescriptorPool p_descriptor_pool) {
 		if (descriptor_set != VK_NULL_HANDLE) {

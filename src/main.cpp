@@ -22,15 +22,19 @@
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
+#include <imgui_internal.h>
 
+#include "asset_loader.hpp"
 #include "error_macros.hpp"
 #include "graphics/imgui_engine.hpp"
 #include "graphics/vulkan_engine.hpp"
 
 AppState state{};
+float AppState::main_scale = 1.f;
 
 void SDL_AppQuit() {
 	if (state.window) {
+		SDL_HideWindow(state.window);
 		if (state.vk_engine && state.vk_engine->device != VK_NULL_HANDLE) {
 			if (state.vk_engine->queue != VK_NULL_HANDLE) {
 				vkQueueWaitIdle(state.vk_engine->queue);
@@ -53,7 +57,7 @@ int main() {
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
 
 	state.main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(1280 * state.main_scale), (int)(720 * state.main_scale), SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(1280_scaled), (int)(720_scaled), SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS);
 	ERR_FAIL_NULL_RET_SDL(window, -1, SDL_GetError());
 	state.window = window;
 
@@ -77,6 +81,9 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(!vk_engine.create_window(w, h), -1, "Failed to create window resources.");
 
 	ERR_FAIL_COND_RET_SDL(!imgui_engine.setup(), -1, "Failed to setup imgui engine.");
+
+	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_fonts(), -1, "Failed to load initial fonts.");
+	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_textures(&imgui_engine), -1, "Failed to load initial textures.");
 
 	while (!state.done) {
 		SDL_Event event;
@@ -110,45 +117,101 @@ int main() {
 
 		ImGui::ShowDemoWindow();
 
-		{
-			static float f = 0.0f;
-			static int counter = 0;
+		float menu_bar_height = ImGui::GetCurrentWindowRead()->MenuBarHeight;
+		bool maximized = SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED;
 
-			ImGui::Begin("Hello, world!");
+		ImGuiViewport *viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos);
+		ImGui::SetNextWindowSize(ImVec2(fb_w, fb_h - ImGui::GetTextLineHeightWithSpacing()));
+		ImGui::SetNextWindowViewport(viewport->ID);
 
-			ImGui::Text("This is some useful text.");
-			ImGui::Checkbox("Another Window", &state.show_another_window);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
 
-			ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-			ImGui::ColorEdit3("clear color", (float *)&state.clear_color);
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+		if (ImGui::Begin("SpolayMainWindow", nullptr, window_flags)) {
+			ImGui::PopStyleVar(2);
+			if (ImGui::BeginMainMenuBar()) {
+				Texture *texture = TEXTURES_GUI_HAMBURGER_LOADED;
+				ImGui::GetWindowDrawList()->AddImage(texture->get_imgui_id(), ImVec2(0, 0), ImVec2(texture->width, texture->height));
+				ImGui::InvisibleButton("##window_menu", ImVec2(menu_bar_height, menu_bar_height));
+				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+					ImGui::OpenPopup("WindowMenu");
+				}
 
-			if (ImGui::Button("Button")) {
-				counter++;
+				if (ImGui::BeginPopup("WindowMenu")) {
+					ImGui::BeginDisabled(!maximized);
+					if (ImGui::MenuItemEx("Restore", ICON_VS_CHROME_RESTORE)) {
+						SDL_RestoreWindow(window);
+					}
+					ImGui::EndDisabled();
+
+					if (ImGui::MenuItemEx("Minimize", ICON_VS_CHROME_MINIMIZE)) {
+						SDL_MinimizeWindow(window);
+					}
+
+					ImGui::BeginDisabled(maximized);
+					if (ImGui::MenuItemEx("Maximize", ICON_VS_CHROME_MAXIMIZE)) {
+						SDL_MaximizeWindow(window);
+					}
+					ImGui::EndDisabled();
+
+					if (ImGui::MenuItemEx("Close", ICON_VS_CHROME_CLOSE, "Alt+F4")) {
+						CLEANUP_SDL();
+					}
+					ImGui::EndPopup();
+				}
+				ImGui::EndMainMenuBar();
 			}
-			ImGui::SameLine();
-			ImGui::Text("counter = %d", counter);
 
-			// ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / imgui_engine.io.Framerate, imgui_engine.io.Framerate);
-			ImGui::End();
-		}
+			if (ImGui::BeginMainMenuBar()) {
+				ImGui::Dummy({});
+				ImGui::PopStyleVar(2);
 
-		if (state.show_another_window) {
-			ImGui::Begin("Another Window", &state.show_another_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-			ImGui::Text("Hello from another window!");
-			if (ImGui::Button("Close Me")) {
-				state.show_another_window = false;
+				ImVec2 buttonSize = ImVec2(menu_bar_height * 1.5f, menu_bar_height - 1);
+
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_MenuBarBg));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabActive));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabHovered));
+
+				ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonSize.x * 3);
+				if (ImGui::Button(ICON_VS_CHROME_MINIMIZE, buttonSize)) {
+					SDL_MinimizeWindow(window);
+				}
+				if (maximized) {
+					if (ImGui::Button(ICON_VS_CHROME_RESTORE, buttonSize)) {
+						SDL_ShowWindow(window);
+					}
+				} else {
+					if (ImGui::Button(ICON_VS_CHROME_MAXIMIZE, buttonSize)) {
+						SDL_MaximizeWindow(window);
+					}
+				}
+
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0xFF7A70F1);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 0xFF2311E8);
+
+				if (ImGui::Button(ICON_VS_CHROME_CLOSE, buttonSize)) {
+					CLEANUP_SDL();
+				}
+
+				ImGui::PopStyleColor(5);
+				ImGui::PopStyleVar();
+
+				ImGui::EndMainMenuBar();
 			}
 			ImGui::End();
+		} else {
+			ImGui::PopStyleVar(4);
 		}
 
 		ImGui::Render();
 		ImDrawData *draw_data = ImGui::GetDrawData();
-		const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+		const bool is_minimized = (draw_data->DisplaySize.x <= 0.f || draw_data->DisplaySize.y <= 0.f);
 		if (!is_minimized) {
-			vk_engine.window.clear_value.color.float32[0] = state.clear_color.x * state.clear_color.w;
-			vk_engine.window.clear_value.color.float32[1] = state.clear_color.y * state.clear_color.w;
-			vk_engine.window.clear_value.color.float32[2] = state.clear_color.z * state.clear_color.w;
-			vk_engine.window.clear_value.color.float32[3] = state.clear_color.w;
 			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_render(draw_data, vk_engine.window.width, vk_engine.window.height), 1, "Failed to render frame.");
 			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_present(), 1, "Failed to present frame to queue.");
 		}

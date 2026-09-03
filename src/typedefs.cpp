@@ -19,6 +19,20 @@
 
 #include "typedefs.hpp"
 
+//
+// The following function idea is borrowed from ImHex (https://github.com/WerWolv/ImHex)
+// under the GNU GPLv2 (https://github.com/WerWolv/ImHex/blob/53dbd48a0ede08885e8ca8ebee2198bc45946610/LICENSE)
+//
+
+float operator""_scaled(unsigned long long p_value) {
+	return p_value * AppState::main_scale;
+}
+
+//
+// The following functions/macros are borrowed from GodotEngine (https://github.com/godotengine/godot)
+// under the MIT License (https://github.com/godotengine/godot/blob/5ec4857b340b6284a18b49b2eda462bd250f219a/LICENSE.txt)
+//
+
 std::string itos(int64_t p_num, int p_base) {
 	bool negative = p_num < 0;
 

@@ -20,7 +20,6 @@
  */
 
 #include <glm/glm.hpp>
-#include <imgui.h>
 
 #include <cstdint>
 #include <string>
@@ -33,14 +32,19 @@ class VulkanEngine;
 class ImGuiEngine;
 
 struct AppState {
-	float main_scale = 1.0f;
+	static float main_scale;
 	SDL_Window *window = nullptr;
 	VulkanEngine *vk_engine = nullptr;
 	ImGuiEngine *imgui_engine = nullptr;
 	bool done = false;
-	bool show_another_window = false;
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 };
+
+//
+// The following function idea is borrowed from ImHex (https://github.com/WerWolv/ImHex)
+// under the GNU GPLv2 (https://github.com/WerWolv/ImHex/blob/53dbd48a0ede08885e8ca8ebee2198bc45946610/LICENSE)
+//
+
+float operator""_scaled(unsigned long long p_value);
 
 //
 // The following functions/macros are borrowed from GodotEngine (https://github.com/godotengine/godot)

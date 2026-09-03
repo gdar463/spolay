@@ -20,10 +20,10 @@
 #include "imgui_engine.hpp"
 
 #include <imgui_impl_sdl3.h>
+#include <stb_image.h>
 
 #include "graphics/imgui/shaders.hpp"
 #include "graphics/imgui/viewport_data.hpp"
-#include "graphics/vulkan/texture.hpp"
 
 ImGuiEngine::ImGuiEngine(AppState *p_state, VulkanEngine *p_vk) {
 	state = p_state;
@@ -71,22 +71,14 @@ bool ImGuiEngine::setup() {
 
 	ImGuiStyle &style = ImGui::GetStyle();
 	style.ScaleAllSizes(state->main_scale);
+	style.FontSizeBase = 16.f;
 
 	ImGui_ImplSDL3_InitForVulkan(state->window);
-	// #pragma region "Sanity Checks"
-	// 	ERR_FAIL_NULL_RET(vk, false, "VK IS SOMEHOW NULL????");
-	// 	ERR_FAIL_COND_RET(vk->instance == VK_NULL_HANDLE, false, "VkInstance is null.");
-	// 	ERR_FAIL_COND_RET(vk->physical_device == VK_NULL_HANDLE, false, "VkPhysicalDevice is null.");
-	// 	ERR_FAIL_COND_RET(vk->device == VK_NULL_HANDLE, false, "VkDevice is null.");
-	// 	ERR_FAIL_COND_RET(vk->queue == VK_NULL_HANDLE, false, "VkQueue is null.");
-	// 	ERR_FAIL_COND_RET(vk->pipeline_cache == VK_NULL_HANDLE, false, "VkPipelineCache is null.");
-	// 	ERR_FAIL_COND_RET(window->swapchain == VK_NULL_HANDLE, false, "VkSwapchainKHR is null.");
-	// 	ERR_FAIL_COND_RET(window->render_pass == VK_NULL_HANDLE, false, "VkRenderPass is null.");
-	// #pragma endregion "Sanity Checks"
 
 	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigDpiScaleFonts = true;
+	io.Fonts->AddFontDefaultVector();
 
 	ERR_FAIL_COND_RET(io.BackendRendererUserData, false, "Already initialized backend renderer.");
 	BackendData *bd = new BackendData();
@@ -177,7 +169,7 @@ bool ImGuiEngine::setup_objects() {
 		sampler_create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 		sampler_create_info.minLod = -1000;
 		sampler_create_info.maxLod = 1000;
-		sampler_create_info.maxAnisotropy = 1.0f;
+		sampler_create_info.maxAnisotropy = 1.f;
 		ERR_FAIL_VK_RET(vkCreateSampler(vk->device, &sampler_create_info, nullptr, &bd->sampler_linear), false, "Failed to create linear sampler.");
 		DEBUG_NAME_VK(bd->sampler_linear, VK_OBJECT_TYPE_SAMPLER, "BackendData/Sampler Linear");
 
@@ -299,7 +291,7 @@ bool ImGuiEngine::setup_objects() {
 		rasterization_state_create_info.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterization_state_create_info.cullMode = VK_CULL_MODE_NONE;
 		rasterization_state_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		rasterization_state_create_info.lineWidth = 1.0f;
+		rasterization_state_create_info.lineWidth = 1.f;
 
 		VkPipelineMultisampleStateCreateInfo multisample_state_create_info{};
 		multisample_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -577,11 +569,11 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 				ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
 				ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
 
-				if (clip_min.x < 0.0f) {
-					clip_min.x = 0.0f;
+				if (clip_min.x < 0.f) {
+					clip_min.x = 0.f;
 				}
-				if (clip_min.y < 0.0f) {
-					clip_min.y = 0.0f;
+				if (clip_min.y < 0.f) {
+					clip_min.y = 0.f;
 				}
 				if (clip_max.x > (float)p_width) {
 					clip_max.x = (float)p_width;
@@ -639,6 +631,20 @@ bool ImGuiEngine::frame_present() {
 	window->semaphore_index = (window->semaphore_index + 1) % window->semaphores_count;
 	window->frame_acquired = false;
 	return true;
+}
+
+Texture *ImGuiEngine::load_texture(const uint8_t *p_buffer, int p_size) {
+	ImTextureData texture_data{};
+	uint8_t *image_data = stbi_load_from_memory(p_buffer, p_size, &texture_data.Width, &texture_data.Height, nullptr, 4);
+	ERR_FAIL_NULL_RET(image_data, nullptr, "Failed to load image from memory.");
+	texture_data.Create(ImTextureFormat_RGBA32, texture_data.Width, texture_data.Height);
+
+	memcpy(texture_data.Pixels, image_data, texture_data.GetSizeInBytes());
+	stbi_image_free(image_data);
+
+	ERR_FAIL_COND_RET(!update_texture(&texture_data), nullptr, "Failed to create new texture.");
+
+	return (Texture *)texture_data.BackendUserData;
 }
 
 bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
@@ -702,6 +708,8 @@ bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
 
 		p_texture->SetTexID((ImTextureID)bd_texture->descriptor_set);
 		p_texture->BackendUserData = bd_texture;
+		bd_texture->width = p_texture->Width;
+		bd_texture->height = p_texture->Height;
 	}
 
 	if (p_texture->Status == ImTextureStatus_WantCreate || p_texture->Status == ImTextureStatus_WantUpdates) {
@@ -929,14 +937,14 @@ void ImGuiEngine::setup_render_state(VkCommandBuffer p_command_buffer, ImDrawDat
 	VkViewport viewport{};
 	viewport.width = (float)p_width;
 	viewport.height = (float)p_height;
-	viewport.maxDepth = 1.0f;
+	viewport.maxDepth = 1.f;
 	vkCmdSetViewport(p_command_buffer, 0, 1, &viewport);
 
 	float constants[4];
-	constants[0] = 2.0f / p_draw_data->DisplaySize.x;
-	constants[1] = 2.0f / p_draw_data->DisplaySize.y;
-	constants[2] = -1.0f - p_draw_data->DisplayPos.x * constants[0];
-	constants[3] = -1.0f - p_draw_data->DisplayPos.y * constants[1];
+	constants[0] = 2.f / p_draw_data->DisplaySize.x;
+	constants[1] = 2.f / p_draw_data->DisplaySize.y;
+	constants[2] = -1.f - p_draw_data->DisplayPos.x * constants[0];
+	constants[3] = -1.f - p_draw_data->DisplayPos.y * constants[1];
 	vkCmdPushConstants(p_command_buffer, bd->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float) * 4, constants);
 
 	vkCmdBindDescriptorSets(bd->render_state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->pipeline_layout, 1, 1, &bd->sampler_linear_descriptor_set, 0, nullptr);

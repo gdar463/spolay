@@ -102,7 +102,7 @@ bool VulkanEngine::pick_physical_device() {
 	ERR_FAIL_MSG_RET(false, "Failed to select a queue family.");
 }
 bool VulkanEngine::create_device() {
-	float queue_priority = 1.0f;
+	float queue_priority = 1.f;
 	VkDeviceQueueCreateInfo queue_create_info{};
 	queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 	queue_create_info.queueFamilyIndex = queue_family;
@@ -453,7 +453,7 @@ bool VulkanEngine::create_command_buffers() {
 	return true;
 }
 bool VulkanEngine::create_window(int p_width, int p_height) {
-	DEBUG_BEGIN_QUEUE_REGION("create_window", 0.349f, 0.835f, 0.878f, 1.0f);
+	DEBUG_BEGIN_QUEUE_REGION("create_window", 0.349f, 0.835f, 0.878f, 1.f);
 	ERR_FAIL_COND_RET(!create_swapchain(p_width, p_height), false, "Failed to create swapchain.");
 	ERR_FAIL_COND_RET(!create_command_buffers(), false, "Failed to create frame synchronization resources.");
 	ERR_FAIL_COND_RET(window.min_image_count < 2, false, "Incorrect min_image_count currently " + itos(window.min_image_count) + " should be at least 2.");

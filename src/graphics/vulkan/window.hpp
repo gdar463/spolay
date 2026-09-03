@@ -43,7 +43,7 @@ struct Window {
 	std::vector<FrameSemaphores> semaphores;
 	uint32_t semaphores_count = min_image_count + 1;
 	uint32_t semaphore_index = 0;
-	VkClearValue clear_value{ VkClearColorValue({ { 0.0f, 0.0f, 0.0f, 1.0f } }) };
+	VkClearValue clear_value{ VkClearColorValue({ .int32 = { 14, 14, 14, 255 } }) };
 
 	void cleanup(VkDevice p_device, bool p_preserve_swapchain = false) {
 		for (uint32_t i = 0; i < semaphores_count; i++) {

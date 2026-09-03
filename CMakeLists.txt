@@ -47,22 +47,18 @@ add_subdirectory(third_party)
 ###
 ### Actual project
 ###
-# file(GLOB_RECURSE SPOLAY_HEADERS CONFIGURE_DEPENDS
-#     "${PROJECT_SOURCE_DIR}/include/spolay/*.hpp")
+file(GLOB_RECURSE SPOLAY_HEADERS CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/include/*.hpp")
 file(GLOB_RECURSE SPOLAY_SOURCES CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp")
-file(GLOB_RECURSE SPOLAY_ASSETS_HEADERS CONFIGURE_DEPENDS
-    "${PROJECT_SOURCE_DIR}/assets/*.hpp")
 
 add_executable(spolay
-    # ${SPOLAY_HEADERS}
-    ${SPOLAY_SOURCES}
-    ${SPOLAY_ASSETS_HEADERS})
+    ${SPOLAY_HEADERS}
+    ${SPOLAY_SOURCES})
 
 target_include_directories(spolay PRIVATE
     include
-    src
-    assets)
+    src)
 
 target_link_libraries(spolay PRIVATE
     stb
@@ -77,18 +73,22 @@ target_link_libraries(spolay PRIVATE
 
 target_compile_features(spolay PUBLIC cxx_std_23)
 
-# source_group(
-#     TREE "${PROJECT_SOURCE_DIR}/include"
-#     PREFIX "Header Files"
-#     FILES ${SPOLAY_HEADERS})
+source_group(
+    TREE "${PROJECT_SOURCE_DIR}/include"
+    PREFIX "Header Files"
+    FILES ${SPOLAY_HEADERS})
 source_group(
     TREE "${PROJECT_SOURCE_DIR}/src"
     PREFIX "Source Files"
     FILES ${SPOLAY_SOURCES})
-source_group(
-    TREE "${PROJECT_SOURCE_DIR}/assets"
-    PREFIX "Assets Headers Files"
-    FILES ${SPOLAY_ASSETS_HEADERS})
+
+if(WIN32)
+    target_compile_definitions(spolay PRIVATE WIN32)
+elseif(LINUX)
+    target_compile_definitions(spolay PRIVATE LINUX)
+else()
+    message(FATAL_ERROR "Platform not supported")
+endif()
 
 if(DEBUG)
     target_compile_definitions(spolay PRIVATE DEBUG)

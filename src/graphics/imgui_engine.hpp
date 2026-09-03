@@ -25,6 +25,7 @@
 
 #include "graphics/imgui/backend_data.hpp"
 #include "graphics/vulkan/render_buffers.hpp"
+#include "graphics/vulkan/texture.hpp"
 #include "graphics/vulkan_engine.hpp"
 
 class ImGuiEngine {
@@ -34,7 +35,6 @@ public:
 	AppState *state = nullptr;
 	VulkanEngine *vk = nullptr;
 	Window *window = nullptr;
-	ImGuiContext *context = nullptr;
 
 	bool setup();
 	bool setup_objects();
@@ -47,6 +47,8 @@ public:
 	bool frame_render(ImDrawData *p_draw_data, int p_width, int p_height);
 	bool render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_command_buffer, int p_width, int p_height);
 	bool frame_present();
+
+	Texture *load_texture(const uint8_t *p_buffer, int p_size);
 
 	void cleanup();
 	~ImGuiEngine();

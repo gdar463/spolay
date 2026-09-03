@@ -33,6 +33,7 @@
 
 #ifdef DEBUG
 #ifndef NO_DEBUG_UTILS
+#include <imgui.h>
 #define DEBUG_NAME(m_handle, m_type, m_name) set_debug_name((uint64_t)m_handle, m_type, m_name)
 #define DEBUG_NAME_VK(m_handle, m_type, m_name) vk->set_debug_name((uint64_t)m_handle, m_type, m_name)
 #define DEBUG_BEGIN_QUEUE_REGION(m_name, ...) begin_debug_queue_region(m_name, ImVec4(__VA_ARGS__))
