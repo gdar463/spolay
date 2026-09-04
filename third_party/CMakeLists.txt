@@ -5,10 +5,10 @@ target_include_directories(stb SYSTEM INTERFACE stb/)
 
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-add_subdirectory(sdl)
+add_subdirectory(sdl EXCLUDE_FROM_ALL)
 
-add_subdirectory(volk)
-add_subdirectory(glm)
+add_subdirectory(volk EXCLUDE_FROM_ALL)
+add_subdirectory(glm EXCLUDE_FROM_ALL)
 
 add_library(vma INTERFACE)
 target_include_directories(vma SYSTEM INTERFACE vma/include)
@@ -31,4 +31,4 @@ target_include_directories(imgui SYSTEM PUBLIC
 target_link_libraries(imgui PRIVATE SDL3::SDL3 volk::volk Vulkan::Vulkan)
 
 set(EMBDFS_PATH "${PROJECT_SOURCE_DIR}/assets")
-add_subdirectory(embdfs)
+add_subdirectory(embdfs EXCLUDE_FROM_ALL)
