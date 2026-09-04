@@ -44,6 +44,7 @@ struct Texture {
 #ifdef DEBUG
 		if (path != nullptr) {
 			delete[] path;
+			path = nullptr;
 		}
 #endif
 		if (descriptor_set != VK_NULL_HANDLE) {
