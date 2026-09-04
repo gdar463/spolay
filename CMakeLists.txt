@@ -100,17 +100,16 @@ if(DEBUG)
     endif()
 endif()
 
-if(WIN32 AND DEBUG)
+if(WIN32)
     set_target_properties(spolay PROPERTIES
-        WIN32_EXECUTABLE $<CONFIG:Debug>)
+        WIN32_EXECUTABLE $<CONFIG:Release>)
+endif()
 
+if(WIN32 AND DEBUG)
     if(CMAKE_CROSSCOMPILING AND DEFINED INCOMING_DIR)
         target_compile_options(spolay PRIVATE
             -fdebug-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}=${INCOMING_DIR})
     endif()
-elseif(WIN32)
-    set_target_properties(spolay PROPERTIES
-        WIN32_EXECUTABLE $<CONFIG:Release>)
 endif()
 
 if(UNIX AND DEBUG AND USE_ASAN)
