@@ -1,10 +1,25 @@
 #!/bin/bash
 set -e
 
-cmake --build build/windows -j
+if [[ ${1,,} == "release" ]]; then
+    folder=build/windows/release
+    shift
+else
+    folder=build/windows/debug
+fi
 
-cp build/windows/spolay.exe incoming/spolay.exe
-cp build/windows/third_party/sdl/SDL3.dll incoming/SDL3.dll
+if [ ! -d $folder ]; then
+    echo "Folder $folder doesn't exist. Run configure.sh first."
+fi
+if [[ ${1,,} == "refresh_embdfs" ]] && [ -d $folder/third_party/embdfs/generator ]; then
+    rm -f $folder/third_party/embdfs/generator $folder/third_party/embdfs/generator-prefix
+    shift
+fi
+
+cmake --build $folder -j4
+
+cp $folder/spolay.exe incoming/spolay.exe
+cp $folder/third_party/sdl/SDL3.dll incoming/SDL3.dll
 
 LINK_PATH="$(readlink incoming)/spolay.exe"
 EXE_PATH="$(wslpath -w $LINK_PATH)"

@@ -1,11 +1,18 @@
 #!/bin/bash
 set -e
 
-if [ ! -d build/linux ]; then
-    echo "Run configure.sh first."
+if [[ ${1,,} == "release" ]]; then
+    folder=build/linux/release
+    shift
+else
+    folder=build/linux/debug
 fi
-if [[ ${1,,} == "refresh_romfs" ]] && [ -f build/linux/third_party/romfs/lib/libromfs_resources.cpp ]; then
-    rm -f build/linux/third_party/romfs/lib/libromfs-spolay.a build/linux/third_party/romfs/lib/libromfs_resources.cpp
+
+if [ ! -d $folder ]; then
+    echo "Folder $folder doesn't exist. Run configure.sh first."
+fi
+if [[ ${1,,} == "refresh_embdfs" ]] && [ -d $folder/third_party/embdfs/generator ]; then
+    rm -f $folder/third_party/embdfs/generator $folder/third_party/embdfs/generator-prefix
     shift
 fi
 if [[ ${1,,} == "only_build" ]]; then
@@ -14,8 +21,8 @@ if [[ ${1,,} == "only_build" ]]; then
 else
     only_build=0
 fi
-cmake --build build/linux -j $@
+cmake --build $folder -j4 $@
 if [ $only_build = 0 ]; then
-    build/linux/spolay
+    $folder/spolay
 fi
 

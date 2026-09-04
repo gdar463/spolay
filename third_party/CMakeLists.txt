@@ -23,9 +23,10 @@ file(GLOB IMGUI_SOURCES
     ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp)
 
 add_library(imgui STATIC ${IMGUI_SOURCES})
-target_compile_definitions(imgui PRIVATE IMGUI_IMPL_VULKAN_USE_VOLK VK_NO_PROTOTYPES)
-target_include_directories(imgui SYSTEM PUBLIC 
-    ${IMGUI_DIR} 
+target_compile_definitions(imgui PRIVATE
+    IMGUI_IMPL_VULKAN_USE_VOLK VK_NO_PROTOTYPES)
+target_include_directories(imgui SYSTEM PUBLIC
+    ${IMGUI_DIR}
     ${IMGUI_DIR}/backends)
 target_link_libraries(imgui PRIVATE SDL3::SDL3 volk::volk Vulkan::Vulkan)
 

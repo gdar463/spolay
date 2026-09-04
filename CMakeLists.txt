@@ -99,10 +99,13 @@ if(DEBUG)
     endif()
 endif()
 
-# if(WIN32)
-#     set_target_properties(spolay PROPERTIES
-#         WIN32_EXECUTABLE $<CONFIG:Relase>)
-# endif()
+if(WIN32 AND DEBUG)
+    set_target_properties(spolay PROPERTIES
+        WIN32_EXECUTABLE $<CONFIG:Debug>)
+elseif(WIN32)
+    set_target_properties(spolay PROPERTIES
+        WIN32_EXECUTABLE $<CONFIG:Release>)
+endif()
 
 if(UNIX AND DEBUG AND USE_ASAN)
     target_compile_options(spolay PRIVATE
