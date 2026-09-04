@@ -45,24 +45,24 @@
 
 #define DEBUG_NAME_VMA(m_allocator, m_allocation, m_name) vmaSetAllocationName(m_allocator, m_allocation, std::string(m_name).c_str())
 #else
-#define DEBUG_NAME(m__, m___, m___)
-#define DEBUG_NAME_VK(m__, m___, m___)
-#define DEBUG_BEGIN_QUEUE_REGION(m__, m___)
-#define DEBUG_BEGIN_QUEUE_REGION_VK(m__, m___)
-#define DEBUG_INSERT_QUEUE_MARKER(m__, m___)
-#define DEBUG_INSERT_QUEUE_MARKER_VK(m__, m___)
+#define DEBUG_NAME(m__, m___, m____)
+#define DEBUG_NAME_VK(m__, m___, m____)
+#define DEBUG_BEGIN_QUEUE_REGION(m__, ...)
+#define DEBUG_BEGIN_QUEUE_REGION_VK(m__, ...)
+#define DEBUG_INSERT_QUEUE_MARKER(m__, ...)
+#define DEBUG_INSERT_QUEUE_MARKER_VK(m__, ...)
 #define DEBUG_END_QUEUE_REGION()
 #define DEBUG_END_QUEUE_REGION_VK()
 
 #define DEBUG_NAME_VMA(m__, m___, m____)
 #endif
 #else
-#define DEBUG_NAME(m__, m___, m___)
-#define DEBUG_NAME_VK(m__, m___, m___)
-#define DEBUG_BEGIN_QUEUE_REGION(m__, m___)
-#define DEBUG_BEGIN_QUEUE_REGION_VK(m__, m___)
-#define DEBUG_INSERT_QUEUE_MARKER(m__, m___)
-#define DEBUG_INSERT_QUEUE_MARKER_VK(m__, m___)
+#define DEBUG_NAME(m__, m___, m____)
+#define DEBUG_NAME_VK(m__, m___, m____)
+#define DEBUG_BEGIN_QUEUE_REGION(m__, ...)
+#define DEBUG_BEGIN_QUEUE_REGION_VK(m__, ...)
+#define DEBUG_INSERT_QUEUE_MARKER(m__, ...)
+#define DEBUG_INSERT_QUEUE_MARKER_VK(m__, ...)
 #define DEBUG_END_QUEUE_REGION()
 #define DEBUG_END_QUEUE_REGION_VK()
 
