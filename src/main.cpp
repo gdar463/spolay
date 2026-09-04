@@ -190,15 +190,15 @@ int main() {
 
 				ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonSize.x * 3);
 				if (ImGui::Button(ICON_VS_CHROME_MINIMIZE, buttonSize)) {
-					SDL_MinimizeWindow(window);
+					ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
 				}
 				if (maximized) {
 					if (ImGui::Button(ICON_VS_CHROME_RESTORE, buttonSize)) {
-						SDL_ShowWindow(window);
+						ERR_FAIL_COND_RET_SDL(!SDL_ShowWindow(window), 999, SDL_GetError());
 					}
 				} else {
 					if (ImGui::Button(ICON_VS_CHROME_MAXIMIZE, buttonSize)) {
-						SDL_MaximizeWindow(window);
+						ERR_FAIL_COND_RET_SDL(!SDL_MaximizeWindow(window), 999, SDL_GetError());
 					}
 				}
 

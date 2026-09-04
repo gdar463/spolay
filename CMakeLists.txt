@@ -68,6 +68,7 @@ target_link_libraries(spolay PRIVATE
     vma
     glm::glm
     imgui
+    libdeflate_static
     embdfs-lib)
 
 target_compile_features(spolay PUBLIC cxx_std_23)
