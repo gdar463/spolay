@@ -20,6 +20,7 @@
 #include <volk.h>
 
 #include <SDL3/SDL.h>
+#include <embdfs.hpp>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_internal.h>
@@ -52,9 +53,11 @@ void SDL_AppQuit() {
 		SDL_DestroyWindow(state.window);
 		SDL_Quit();
 	}
+	embdfs::cleanup();
 }
 
 int main() {
+	embdfs::setup();
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
 
 	state.main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
