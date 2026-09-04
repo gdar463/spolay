@@ -59,7 +59,9 @@ if [ $only_release = 0 ]; then
     if [ ! -L ./compile_commands.json ]; then
         ln -s "$(pwd)/build/linux/debug/compile_commands.json" compile_commands.json
     fi
-    cmake -B build/windows/debug -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/windows-mingw.cmake -DCMAKE_BUILD_TYPE=Debug $@
+    LINK_PATH="$(readlink incoming)"
+    REAL_PATH="$(wslpath -w $LINK_PATH)"
+    cmake -B build/windows/debug -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/windows-mingw.cmake -DCMAKE_BUILD_TYPE=Debug -DINCOMING_DIR=$REAL_PATH $@
 fi
 cmake -B build/linux/release -DCMAKE_BUILD_TYPE=Release $@
 cmake -B build/windows/release -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/windows-mingw.cmake -DCMAKE_BUILD_TYPE=Release $@

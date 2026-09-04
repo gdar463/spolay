@@ -6,6 +6,7 @@ if [[ ${1,,} == "release" ]]; then
     shift
 else
     folder=build/windows/debug
+    cp -rf src incoming/src
 fi
 
 if [ ! -d $folder ]; then
