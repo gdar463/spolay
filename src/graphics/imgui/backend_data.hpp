@@ -23,7 +23,10 @@
 
 #include "graphics/vulkan/render_state.hpp"
 
+class VulkanEngine;
+
 struct BackendData {
+	VulkanEngine *vk = nullptr;
 	RenderState *render_state = nullptr;
 	VkDescriptorSetLayout descriptor_set_layout_texture = VK_NULL_HANDLE;
 	VkDescriptorSetLayout descriptor_set_layout_sampler = VK_NULL_HANDLE;
@@ -39,6 +42,8 @@ struct BackendData {
 	VkDescriptorSet sampler_nearest_descriptor_set = VK_NULL_HANDLE;
 	VkCommandPool texture_command_pool = VK_NULL_HANDLE;
 	VkCommandBuffer texture_command_buffer = VK_NULL_HANDLE;
+
+	constexpr BackendData(VulkanEngine *p_vk) : vk(p_vk) {}
 
 	void cleanup(VkDevice p_device) {
 		if (render_state) {

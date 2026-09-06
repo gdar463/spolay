@@ -81,7 +81,7 @@ bool ImGuiEngine::setup() {
 	io.ConfigDpiScaleFonts = true;
 
 	ERR_FAIL_COND_RET(io.BackendRendererUserData, false, "Already initialized backend renderer.");
-	BackendData *bd = new BackendData();
+	BackendData *bd = new BackendData(vk);
 	ERR_FAIL_NULL_RET(bd, false, "BackendData intialiazed to null.");
 	io.BackendRendererUserData = (void *)bd;
 	bd = nullptr;
