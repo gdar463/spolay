@@ -39,7 +39,7 @@ void ImGuiEngine::cleanup() {
 	ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
 
 	for (int i = 0; i < platform_io.Viewports.Size; i++) {
-		ViewportData *vd = (ViewportData *)platform_io.Viewports[i]->RendererUserData;
+		ImguiViewportData *vd = (ImguiViewportData *)platform_io.Viewports[i]->RendererUserData;
 		if (vd) {
 			vd->cleanup(vk->allocator);
 			delete vd;
@@ -92,7 +92,7 @@ bool ImGuiEngine::setup() {
 	io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
 
 	ImGuiViewport *main_viewport = ImGui::GetMainViewport();
-	main_viewport->RendererUserData = new ViewportData();
+	main_viewport->RendererUserData = new ImguiViewportData();
 	main_viewport = nullptr;
 
 	ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
@@ -469,7 +469,7 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 
 	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
-	ViewportData *vd = (ViewportData *)p_draw_data->OwnerViewport->RendererUserData;
+	ImguiViewportData *vd = (ImguiViewportData *)p_draw_data->OwnerViewport->RendererUserData;
 	ERR_FAIL_NULL_RET(vd, false, "ViewportData is null.");
 
 	WindowRenderBuffers *wrb = &vd->render_buffers;

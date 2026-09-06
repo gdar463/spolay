@@ -36,7 +36,7 @@ struct WindowRenderBuffers {
 	}
 };
 
-struct ViewportData {
+struct ImguiViewportData {
 	Window window;
 	WindowRenderBuffers render_buffers;
 
