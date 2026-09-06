@@ -53,7 +53,7 @@ public:
 	void cleanup();
 	~ImGuiEngine();
 
-	static BackendData *get_backend_data();
+	static ImGuiBackendData *get_backend_data();
 
 private:
 	bool acquire_next_image();

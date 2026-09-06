@@ -31,7 +31,7 @@ ImGuiEngine::ImGuiEngine(AppState *p_state, VulkanEngine *p_vk) {
 }
 ImGuiEngine::~ImGuiEngine() {}
 void ImGuiEngine::cleanup() {
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	if (!bd) {
 		return;
 	}
@@ -81,7 +81,7 @@ bool ImGuiEngine::setup() {
 	io.ConfigDpiScaleFonts = true;
 
 	ERR_FAIL_COND_RET(io.BackendRendererUserData, false, "Already initialized backend renderer.");
-	BackendData *bd = new BackendData(vk);
+	ImGuiBackendData *bd = new ImGuiBackendData(vk);
 	ERR_FAIL_NULL_RET(bd, false, "BackendData intialiazed to null.");
 	io.BackendRendererUserData = (void *)bd;
 	bd = nullptr;
@@ -110,7 +110,7 @@ bool ImGuiEngine::setup() {
 	return true;
 }
 bool ImGuiEngine::setup_objects() {
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
 
 	{
@@ -467,7 +467,7 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 		}
 	}
 
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
 	ViewportData *vd = (ViewportData *)p_draw_data->OwnerViewport->RendererUserData;
 	ERR_FAIL_NULL_RET(vd, false, "ViewportData is null.");
@@ -650,7 +650,7 @@ Texture *ImGuiEngine::load_texture(const uint8_t *p_buffer, int p_size) {
 }
 
 bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
 
 	if (p_texture->Status == ImTextureStatus_WantCreate) {
@@ -929,7 +929,7 @@ bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
 	return true;
 }
 void ImGuiEngine::setup_render_state(VkCommandBuffer p_command_buffer, ImDrawData *p_draw_data, RenderBuffers *p_rb, int p_width, int p_height) {
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	vkCmdBindPipeline(p_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->pipeline);
 
 	if (p_draw_data->TotalVtxCount > 0) {
@@ -956,18 +956,18 @@ void ImGuiEngine::setup_render_state(VkCommandBuffer p_command_buffer, ImDrawDat
 
 void ImGuiEngine::draw_callback__reset_render_state(const ImDrawList *, const ImDrawCmd *) {}
 void ImGuiEngine::draw_callback__set_sampler_linear(const ImDrawList *, const ImDrawCmd *) {
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL(bd, "BackendData is null.");
 
 	vkCmdBindDescriptorSets(bd->render_state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->render_state->pipeline_layout, 1, 1, &bd->sampler_linear_descriptor_set, 0, nullptr);
 }
 void ImGuiEngine::draw_callback__set_sampler_nearest(const ImDrawList *, const ImDrawCmd *) {
-	BackendData *bd = get_backend_data();
+	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL(bd, "BackendData is null.");
 
 	vkCmdBindDescriptorSets(bd->render_state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->render_state->pipeline_layout, 1, 1, &bd->sampler_nearest_descriptor_set, 0, nullptr);
 }
 
-BackendData *ImGuiEngine::get_backend_data() {
-	return ImGui::GetCurrentContext() ? (BackendData *)(ImGui::GetIO().BackendRendererUserData) : nullptr;
+ImGuiBackendData *ImGuiEngine::get_backend_data() {
+	return ImGui::GetCurrentContext() ? (ImGuiBackendData *)(ImGui::GetIO().BackendRendererUserData) : nullptr;
 }

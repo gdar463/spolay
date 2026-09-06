@@ -25,7 +25,7 @@
 
 class VulkanEngine;
 
-struct BackendData {
+struct ImGuiBackendData {
 	VulkanEngine *vk = nullptr;
 	RenderState *render_state = nullptr;
 	VkDescriptorSetLayout descriptor_set_layout_texture = VK_NULL_HANDLE;
@@ -43,7 +43,7 @@ struct BackendData {
 	VkCommandPool texture_command_pool = VK_NULL_HANDLE;
 	VkCommandBuffer texture_command_buffer = VK_NULL_HANDLE;
 
-	constexpr BackendData(VulkanEngine *p_vk) : vk(p_vk) {}
+	constexpr ImGuiBackendData(VulkanEngine *p_vk) : vk(p_vk) {}
 
 	void cleanup(VkDevice p_device) {
 		if (render_state) {
