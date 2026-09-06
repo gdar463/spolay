@@ -56,6 +56,15 @@ void SDL_AppQuit() {
 	embdfs::cleanup();
 }
 
+SDL_HitTestResult window_hit_test_callback(SDL_Window *, const SDL_Point *p_area, void *) {
+	if (p_area->y < state.main_menu_bar.height) {
+		if (p_area->x > state.main_menu_bar.left_edge && p_area->x < state.main_menu_bar.right_edge) {
+			return SDL_HITTEST_DRAGGABLE;
+		}
+	}
+	return SDL_HITTEST_NORMAL;
+}
+
 int main() {
 	embdfs::setup();
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
@@ -88,6 +97,8 @@ int main() {
 
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_fonts(), -1, "Failed to load initial fonts.");
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_textures(&imgui_engine), -1, "Failed to load initial textures.");
+
+	ERR_FAIL_COND_RET_SDL(!SDL_SetWindowHitTest(window, window_hit_test_callback, nullptr), -1, SDL_GetError());
 
 	while (!state.done) {
 		uint64_t target_ms = 1000 / state.target_fps;
@@ -129,9 +140,6 @@ int main() {
 
 		ImGui::ShowDemoWindow();
 
-		float menu_bar_height = ImGui::GetCurrentWindowRead()->MenuBarHeight;
-		bool maximized = SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED;
-
 		ImGuiViewport *viewport = ImGui::GetMainViewport();
 		ImGui::SetNextWindowPos(viewport->WorkPos);
 		ImGui::SetNextWindowSize(ImVec2(fb_w, fb_h - ImGui::GetTextLineHeightWithSpacing()));
@@ -142,66 +150,30 @@ int main() {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
 
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 		if (ImGui::Begin("SpolayMainWindow", nullptr, window_flags)) {
 			ImGui::PopStyleVar(2);
-			if (ImGui::BeginMainMenuBar()) {
-				Texture *texture = TEXTURES_GUI_HAMBURGER_LOADED;
-				ImGui::GetWindowDrawList()->AddImage(texture->get_imgui_id(), ImVec2(0, 0), ImVec2(texture->width, texture->height));
-				ImGui::InvisibleButton("##window_menu", ImVec2(menu_bar_height, menu_bar_height));
-				if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-					ImGui::OpenPopup("WindowMenu");
-				}
-
-				if (ImGui::BeginPopup("WindowMenu")) {
-					ImGui::BeginDisabled(!maximized);
-					if (ImGui::MenuItemEx("Restore", ICON_VS_CHROME_RESTORE)) {
-						ERR_FAIL_COND_RET_SDL(!SDL_RestoreWindow(window), 999, SDL_GetError());
-					}
-					ImGui::EndDisabled();
-
-					if (ImGui::MenuItemEx("Minimize", ICON_VS_CHROME_MINIMIZE)) {
-						ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
-					}
-
-					ImGui::BeginDisabled(maximized);
-					if (ImGui::MenuItemEx("Maximize", ICON_VS_CHROME_MAXIMIZE)) {
-						ERR_FAIL_COND_RET_SDL(!SDL_MaximizeWindow(window), 999, SDL_GetError());
-					}
-					ImGui::EndDisabled();
-
-					if (ImGui::MenuItemEx("Close", ICON_VS_CHROME_CLOSE, "Alt+F4")) {
-						CLEANUP_SDL();
-						return 0;
-					}
-					ImGui::EndPopup();
-				}
-				ImGui::EndMainMenuBar();
-			}
 
 			if (ImGui::BeginMainMenuBar()) {
-				ImGui::Dummy({});
 				ImGui::PopStyleVar(2);
+				state.main_menu_bar.height = ImGui::GetCurrentWindowRead()->MenuBarHeight;
 
-				ImVec2 buttonSize = ImVec2(menu_bar_height * 1.5f, menu_bar_height - 1);
+				// Here place buttons
+
+				// No idea why, but there's a small edge on the left of 8px
+				state.main_menu_bar.left_edge = ImGui::GetCursorPosX() - 8;
+
+				ImVec2 buttonSize = ImVec2(state.main_menu_bar.height * 1.5f, state.main_menu_bar.height - 1);
 
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_MenuBarBg));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabActive));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabHovered));
 
-				ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonSize.x * 3);
+				state.main_menu_bar.right_edge = ImGui::GetWindowWidth() - buttonSize.x * 2;
+				ImGui::SetCursorPosX(state.main_menu_bar.right_edge);
 				if (ImGui::Button(ICON_VS_CHROME_MINIMIZE, buttonSize)) {
 					ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
-				}
-				if (maximized) {
-					if (ImGui::Button(ICON_VS_CHROME_RESTORE, buttonSize)) {
-						ERR_FAIL_COND_RET_SDL(!SDL_ShowWindow(window), 999, SDL_GetError());
-					}
-				} else {
-					if (ImGui::Button(ICON_VS_CHROME_MAXIMIZE, buttonSize)) {
-						ERR_FAIL_COND_RET_SDL(!SDL_MaximizeWindow(window), 999, SDL_GetError());
-					}
 				}
 
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0xFF7A70F1);
@@ -215,7 +187,25 @@ int main() {
 				ImGui::PopStyleColor(5);
 				ImGui::PopStyleVar();
 
+				ImGui::SetCursorPosX(state.main_menu_bar.left_edge);
+				ImGui::InvisibleButton("##window_menu", ImVec2(state.main_menu_bar.right_edge - state.main_menu_bar.left_edge, state.main_menu_bar.height));
+				if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+					ImGui::OpenPopup("WindowMenu");
+				}
+				if (ImGui::BeginPopup("WindowMenu")) {
+					if (ImGui::MenuItemEx("Minimize", ICON_VS_CHROME_MINIMIZE)) {
+						ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
+					}
+
+					if (ImGui::MenuItemEx("Close", ICON_VS_CHROME_CLOSE, "Alt+F4")) {
+						CLEANUP_SDL();
+						return 0;
+					}
+					ImGui::EndPopup();
+				}
 				ImGui::EndMainMenuBar();
+			} else {
+				ImGui::PopStyleVar(2);
 			}
 			ImGui::End();
 		} else {

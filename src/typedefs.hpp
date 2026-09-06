@@ -31,6 +31,12 @@ struct SDL_Window;
 class VulkanEngine;
 class ImGuiEngine;
 
+struct MainMenuBarState {
+	float height = 0.f;
+	float left_edge = 0.f;
+	float right_edge = 0.f;
+};
+
 struct AppState {
 	static float main_scale;
 	float target_fps = 30.f;
@@ -38,6 +44,7 @@ struct AppState {
 	VulkanEngine *vk_engine = nullptr;
 	ImGuiEngine *imgui_engine = nullptr;
 	bool done = false;
+	MainMenuBarState main_menu_bar{};
 };
 
 //
