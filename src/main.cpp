@@ -156,17 +156,17 @@ int main() {
 				if (ImGui::BeginPopup("WindowMenu")) {
 					ImGui::BeginDisabled(!maximized);
 					if (ImGui::MenuItemEx("Restore", ICON_VS_CHROME_RESTORE)) {
-						SDL_RestoreWindow(window);
+						ERR_FAIL_COND_RET_SDL(!SDL_RestoreWindow(window), 999, SDL_GetError());
 					}
 					ImGui::EndDisabled();
 
 					if (ImGui::MenuItemEx("Minimize", ICON_VS_CHROME_MINIMIZE)) {
-						SDL_MinimizeWindow(window);
+						ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
 					}
 
 					ImGui::BeginDisabled(maximized);
 					if (ImGui::MenuItemEx("Maximize", ICON_VS_CHROME_MAXIMIZE)) {
-						SDL_MaximizeWindow(window);
+						ERR_FAIL_COND_RET_SDL(!SDL_MaximizeWindow(window), 999, SDL_GetError());
 					}
 					ImGui::EndDisabled();
 

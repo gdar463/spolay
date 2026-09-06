@@ -62,6 +62,58 @@ bool VulkanEngine::create_surface() {
 	ERR_FAIL_COND_RET(!SDL_Vulkan_CreateSurface(sdl_window, instance, nullptr, &surface), false, "Failed to create Vulkan surface.");
 	return true;
 }
+bool VulkanEngine::create_instance() {
+	VkApplicationInfo app_info{};
+	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	app_info.pApplicationName = APP_NAME;
+	app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
+	app_info.pEngineName = "No Engine";
+	app_info.engineVersion = VK_MAKE_VERSION(0, 0, 0);
+	app_info.apiVersion = APP_VULKAN_API_VERSION;
+
+	VkInstanceCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	create_info.pApplicationInfo = &app_info;
+
+	std::vector<const char *> layers{};
+
+	uint32_t layer_properties_count;
+	vkEnumerateInstanceLayerProperties(&layer_properties_count, nullptr);
+	std::vector<VkLayerProperties> layer_properties(layer_properties_count);
+	vkEnumerateInstanceLayerProperties(&layer_properties_count, layer_properties.data());
+
+	for (const char *const &layer_name : optional_layers) {
+		add_layer(layer_properties, layer_name, layers);
+	}
+
+	create_info.enabledLayerCount = layers.size();
+	create_info.ppEnabledLayerNames = layers.data();
+
+	uint32_t sdl_extenstions_count;
+	const char *const *sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_extenstions_count);
+	std::vector<const char *> extensions(sdl_extensions, sdl_extensions + sdl_extenstions_count);
+
+	uint32_t extension_properties_count;
+	ERR_FAIL_VK_RET(vkEnumerateInstanceExtensionProperties(nullptr, &extension_properties_count, nullptr), false, "Faled to enumerate instance extensions.");
+	std::vector<VkExtensionProperties> extension_properties(extension_properties_count);
+	ERR_FAIL_VK_RET(vkEnumerateInstanceExtensionProperties(nullptr, &extension_properties_count, extension_properties.data()), false, "Faled to enumerate instance extensions.");
+
+	for (const char *const &ext_name : essential_instance_extensions) {
+		ERR_FAIL_COND_RET(!add_essential_extension(extension_properties, ext_name, false, extensions), false, "Failed to add essential instance extension.");
+	}
+	for (const char *const &ext_name : optional_instance_extensions) {
+		add_optional_extension(extension_properties, ext_name, false, extensions);
+	}
+
+	create_info.enabledExtensionCount = extensions.size();
+	create_info.ppEnabledExtensionNames = extensions.data();
+
+	ERR_FAIL_VK_RET(vkCreateInstance(&create_info, nullptr, &instance), false, "Failed to create Vulkan instance");
+	ERR_FAIL_COND_RET(instance == VK_NULL_HANDLE, false, "VkInstance is null, but create did not error.");
+
+	volkLoadInstance(instance);
+	return true;
+}
 bool VulkanEngine::pick_physical_device() {
 	uint32_t physical_devices_count = 0;
 	ERR_FAIL_VK_RET(vkEnumeratePhysicalDevices(instance, &physical_devices_count, nullptr), false, "Failed to enumerate physical devices.");
@@ -472,29 +524,6 @@ bool VulkanEngine::create_window(int p_width, int p_height) {
 }
 
 #ifdef DEBUG
-#ifndef NO_VALIDATION_LAYER
-#define VK_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
-
-const std::vector<const char *> debug_layers = {
-	VK_VALIDATION_LAYER_NAME
-};
-
-bool VulkanEngine::check_validation_layer_support() {
-	uint32_t layer_count;
-	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-
-	std::vector<VkLayerProperties> available_layers(layer_count);
-	vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
-
-	for (const VkLayerProperties &layer_properties : available_layers) {
-		if (strcmp(VK_VALIDATION_LAYER_NAME, layer_properties.layerName) == 0) {
-			return true;
-		}
-	}
-	return false;
-}
-#endif
-
 #ifndef NO_DEBUG_UTILS
 void VulkanEngine::set_debug_name(uint64_t p_handle, VkObjectType p_type, const char *p_name) {
 	VkDebugUtilsObjectNameInfoEXT debug_utils_object_name_info{};
@@ -561,60 +590,22 @@ void VulkanEngine::end_debug_queue_region() {
 #endif
 #endif
 
-bool VulkanEngine::create_instance() {
-	VkApplicationInfo app_info{};
-	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	app_info.pApplicationName = APP_NAME;
-	app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-	app_info.pEngineName = "No Engine";
-	app_info.engineVersion = VK_MAKE_VERSION(0, 0, 0);
-	app_info.apiVersion = APP_VULKAN_API_VERSION;
-
-	VkInstanceCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	create_info.pApplicationInfo = &app_info;
-
-#ifdef DEBUG
-#ifndef NO_VALIDATION_LAYER
-	if (check_validation_layer_support()) {
-		create_info.enabledLayerCount = debug_layers.size();
-		create_info.ppEnabledLayerNames = debug_layers.data();
-	} else {
-#endif
-#endif
-		create_info.enabledLayerCount = 0;
-#ifdef DEBUG
-#ifndef NO_VALIDATION_LAYER
+bool VulkanEngine::is_layer_available(std::vector<VkLayerProperties> &p_layer_properties, const char *p_layer) {
+	for (const VkLayerProperties &layer_properties : p_layer_properties) {
+		if (strcmp(layer_properties.layerName, p_layer) == 0) {
+			return true;
+		}
 	}
-#endif
-#endif
-
-	uint32_t sdl_extenstions_count;
-	const char *const *sdl_extensions = SDL_Vulkan_GetInstanceExtensions(&sdl_extenstions_count);
-	std::vector<const char *> extensions(sdl_extensions, sdl_extensions + sdl_extenstions_count);
-
-	uint32_t extension_properties_count;
-	ERR_FAIL_VK_RET(vkEnumerateInstanceExtensionProperties(nullptr, &extension_properties_count, nullptr), false, "Faled to enumerate instance extensions.");
-	std::vector<VkExtensionProperties> extension_properties(extension_properties_count);
-	ERR_FAIL_VK_RET(vkEnumerateInstanceExtensionProperties(nullptr, &extension_properties_count, extension_properties.data()), false, "Faled to enumerate instance extensions.");
-
-	for (const char *const &ext_name : essential_instance_extensions) {
-		ERR_FAIL_COND_RET(!add_essential_extension(extension_properties, ext_name, false, extensions), false, "Failed to add essential instance extension.");
-	}
-	for (const char *const &ext_name : optional_instance_extensions) {
-		add_optional_extension(extension_properties, ext_name, false, extensions);
-	}
-
-	create_info.enabledExtensionCount = extensions.size();
-	create_info.ppEnabledExtensionNames = extensions.data();
-
-	ERR_FAIL_VK_RET(vkCreateInstance(&create_info, nullptr, &instance), false, "Failed to create Vulkan instance");
-	ERR_FAIL_COND_RET(instance == VK_NULL_HANDLE, false, "VkInstance is null, but create did not error.");
-
-	volkLoadInstance(instance);
-	return true;
+	return false;
 }
-
+bool VulkanEngine::add_layer(std::vector<VkLayerProperties> &p_layer_properties, const char *p_layer, std::vector<const char *> &r_layers) {
+	if (likely(is_layer_available(p_layer_properties, p_layer))) {
+		r_layers.push_back(p_layer);
+		active_layers.insert(p_layer);
+		return true;
+	}
+	return false;
+}
 bool VulkanEngine::is_extension_available(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension) {
 	for (const VkExtensionProperties &extension_properties : p_extension_properties) {
 		if (strcmp(extension_properties.extensionName, p_extension) == 0) {

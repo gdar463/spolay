@@ -69,6 +69,17 @@
 #define DEBUG_NAME_VMA(m__, m___, m____)
 #endif
 
+const std::vector<const char *> optional_layers{
+#ifdef DEBUG
+#ifndef NO_VALIDATION_LAYER
+	"VK_LAYER_KHRONOS_validation",
+#endif
+#ifndef NO_CRASH_DIAGNOSTIC_LAYER
+	"VK_LAYER_LUNARG_crash_diagnostic",
+#endif
+#endif
+};
+
 const std::vector<const char *> essential_instance_extensions{};
 
 const std::vector<const char *> essential_device_extensions{
@@ -91,6 +102,19 @@ const std::vector<const char *> optional_device_extensions{
 	VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 	VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
 	VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME,
+#ifdef DEBUG
+#ifndef NO_CRASH_DIAGNOSTIC_LAYER // technically doesn't need to be only for debug, but for now they're only used for the layer
+	VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
+	VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
+	VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME,
+	VK_AMD_BUFFER_MARKER_EXTENSION_NAME,
+	VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME,
+	VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
+#ifndef NO_DEBUG_UTILS
+	VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME
+#endif
+#endif
+#endif
 };
 
 class VulkanEngine {
@@ -113,6 +137,7 @@ public:
 
 	std::set<const char *> active_instance_extensions;
 	std::set<const char *> active_device_extensions;
+	std::set<const char *> active_layers;
 
 	VkPhysicalDeviceSurfaceInfo2KHR surface_info{};
 	Window window{};
@@ -147,11 +172,8 @@ public:
 #endif
 
 private:
-#ifdef DEBUG
-#ifndef NO_VALIDATION_LAYER
-	bool check_validation_layer_support();
-#endif
-#endif
+	bool is_layer_available(std::vector<VkLayerProperties> &p_layer_properties, const char *p_layer);
+	bool add_layer(std::vector<VkLayerProperties> &p_layer_properties, const char *p_extension, std::vector<const char *> &r_layers);
 	bool is_extension_available(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension);
 	bool add_essential_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions);
 	bool add_optional_extension(std::vector<VkExtensionProperties> &p_extension_properties, const char *p_extension, bool p_device, std::vector<const char *> &r_extensions);
