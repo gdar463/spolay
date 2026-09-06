@@ -22,12 +22,12 @@
 #include <SDL3/SDL.h>
 #include <embdfs.hpp>
 #include <imgui.h>
-#include <imgui_impl_sdl3.h>
 #include <imgui_internal.h>
 
 #include "asset_loader.hpp"
 #include "error_macros.hpp"
 #include "graphics/imgui_engine.hpp"
+#include "graphics/sdl_engine.hpp"
 #include "graphics/vulkan_engine.hpp"
 
 AppState state{};
@@ -44,7 +44,7 @@ void SDL_AppQuit() {
 			if (state.imgui_engine) {
 				AssetLoader::cleanup(state.vk_engine);
 				state.imgui_engine->cleanup();
-				ImGui_ImplSDL3_Shutdown();
+				SdlEngine::cleanup();
 				ImGui::DestroyContext();
 			}
 			ERR_FAIL_COND(!state.vk_engine->device, "VkDevice already destroyed?");
@@ -70,7 +70,7 @@ int main() {
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
 
 	state.main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(1280_scaled), (int)(720_scaled), SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(320_scaled), (int)(180_scaled), APP_SDL_FLAGS);
 	ERR_FAIL_NULL_RET_SDL(window, -1, SDL_GetError());
 	state.window = window;
 
@@ -94,6 +94,7 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(!vk_engine.create_window(w, h), -1, "Failed to create window resources.");
 
 	ERR_FAIL_COND_RET_SDL(!imgui_engine.setup(), -1, "Failed to setup imgui engine.");
+	ERR_FAIL_COND_RET_SDL(!SdlEngine::setup(window), -1, "Failed to setup sdl engine.");
 
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_fonts(), -1, "Failed to load initial fonts.");
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_textures(&imgui_engine), -1, "Failed to load initial textures.");
@@ -105,7 +106,7 @@ int main() {
 		uint64_t start = SDL_GetTicks();
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			ImGui_ImplSDL3_ProcessEvent(&event);
+			SdlEngine::process_event(&event);
 			switch (event.type) {
 				case SDL_EVENT_QUIT:
 					state.done = true;
@@ -135,7 +136,7 @@ int main() {
 		if (!vk_engine.window.frame_acquired) {
 			continue;
 		}
-		ImGui_ImplSDL3_NewFrame();
+		SdlEngine::new_frame();
 		ImGui::NewFrame();
 
 		ImGui::ShowDemoWindow();

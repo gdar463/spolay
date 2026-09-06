@@ -19,7 +19,6 @@
 
 #include "imgui_engine.hpp"
 
-#include <imgui_impl_sdl3.h>
 #include <stb_image.h>
 
 #include "graphics/imgui/shaders.hpp"
@@ -74,10 +73,9 @@ bool ImGuiEngine::setup() {
 	style.FontSizeBase = 18.f;
 	style.FontScaleDpi = 2.f;
 
-	ImGui_ImplSDL3_InitForVulkan(state->window);
-
 	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 	io.ConfigDpiScaleFonts = true;
 
 	ERR_FAIL_COND_RET(io.BackendRendererUserData, false, "Already initialized backend renderer.");
