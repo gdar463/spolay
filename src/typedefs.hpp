@@ -33,6 +33,7 @@ class ImGuiEngine;
 
 struct AppState {
 	static float main_scale;
+	float target_fps = 30.f;
 	SDL_Window *window = nullptr;
 	VulkanEngine *vk_engine = nullptr;
 	ImGuiEngine *imgui_engine = nullptr;

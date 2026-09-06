@@ -90,6 +90,8 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_textures(&imgui_engine), -1, "Failed to load initial textures.");
 
 	while (!state.done) {
+		uint64_t target_ms = 1000 / state.target_fps;
+		uint64_t start = SDL_GetTicks();
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			ImGui_ImplSDL3_ProcessEvent(&event);
@@ -226,6 +228,10 @@ int main() {
 		if (!is_minimized) {
 			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_render(draw_data, vk_engine.window.width, vk_engine.window.height), 1, "Failed to render frame.");
 			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_present(), 1, "Failed to present frame to queue.");
+		}
+		uint64_t end = SDL_GetTicks();
+		if (end - start < target_ms) {
+			SDL_Delay(end - start);
 		}
 	}
 
