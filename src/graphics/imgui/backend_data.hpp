@@ -32,6 +32,7 @@ struct ImGuiBackendData {
 	VkDescriptorSetLayout descriptor_set_layout_sampler = VK_NULL_HANDLE;
 	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkPipeline pipeline_for_viewports = VK_NULL_HANDLE;
 	VkShaderModule shader_module_vert = VK_NULL_HANDLE;
 	VkShaderModule shader_module_frag = VK_NULL_HANDLE;
 	VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
@@ -65,6 +66,10 @@ struct ImGuiBackendData {
 		if (shader_module_vert != VK_NULL_HANDLE) {
 			vkDestroyShaderModule(p_device, shader_module_vert, nullptr);
 			shader_module_vert = VK_NULL_HANDLE;
+		}
+		if (pipeline_for_viewports != VK_NULL_HANDLE) {
+			vkDestroyPipeline(p_device, pipeline_for_viewports, nullptr);
+			pipeline_for_viewports = VK_NULL_HANDLE;
 		}
 		if (pipeline != VK_NULL_HANDLE) {
 			vkDestroyPipeline(p_device, pipeline, nullptr);

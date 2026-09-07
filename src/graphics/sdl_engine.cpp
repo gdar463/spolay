@@ -171,6 +171,7 @@ bool SdlEngine::setup_multi_viewport(SDL_Window *p_window) {
 
 bool SdlEngine::setup_viewport(ImGuiViewport *p_viewport, SDL_Window *p_window) {
 	p_viewport->PlatformHandle = (void *)(intptr_t)SDL_GetWindowID(p_window);
+	ERR_FAIL_NULL_RET(p_viewport->PlatformHandle, false, SDL_GetError());
 	p_viewport->PlatformHandleRaw = nullptr;
 #ifdef WIN32
 	p_viewport->PlatformHandleRaw = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(p_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
@@ -373,18 +374,20 @@ void SdlEngine::create_window(ImGuiViewport *p_viewport) {
 	ERR_FAIL_NULL(bd, "BackendData is null.");
 
 	SdlViewportData *vd = new SdlViewportData();
-	p_viewport->PlatformUserData = vd;
-	vd->parent = get_window_from_viewport(p_viewport);
-	ERR_FAIL_NULL(vd->parent, "Failed to get window from viewport.");
 
-	SDL_WindowFlags flags = SDL_WINDOW_HIDDEN | APP_SDL_FLAGS;
+	SDL_WindowFlags flags = APP_SDL_FLAGS;
 	vd->window = SDL_CreateWindow("No Title", p_viewport->Size.x, p_viewport->Size.y, flags);
 	ERR_FAIL_NULL(vd->window, SDL_GetError());
 	vd->window_owned = true;
+	if (p_viewport->ParentViewport) {
+		vd->parent = get_window_from_viewport(p_viewport->ParentViewport);
+		ERR_FAIL_NULL(vd->parent, "Failed to get parent window.");
+	}
 	ERR_FAIL_COND(!SDL_SetWindowParent(vd->window, vd->parent), SDL_GetError());
 	ERR_FAIL_COND(!SDL_SetWindowPosition(vd->window, p_viewport->Pos.x, p_viewport->Pos.y), SDL_GetError());
 
 	ERR_FAIL_COND(!setup_viewport(p_viewport, vd->window), "Failed to setup viewport.");
+	p_viewport->PlatformUserData = vd;
 	vd = nullptr;
 }
 void SdlEngine::destroy_window(ImGuiViewport *p_viewport) {
@@ -421,7 +424,6 @@ void SdlEngine::update_window(ImGuiViewport *p_viewport) {
 	ERR_FAIL_NULL(vd, "ViewportData is null.");
 
 	SDL_Window *parent_window = get_window_from_viewport(p_viewport->ParentViewport);
-	ERR_FAIL_NULL(parent_window, "Failed to get window for parent viewport.");
 	if (parent_window != vd->parent) {
 		vd->parent = parent_window;
 		ERR_FAIL_COND(!SDL_SetWindowParent(vd->window, vd->parent), SDL_GetError());
@@ -539,7 +541,7 @@ bool SdlEngine::update_mouse_data() {
 		}
 
 		ImGuiViewport *mouse_viewport = get_viewport_from_window_id(bd->mouse_window_id);
-		if (!mouse_viewport) {
+		if (mouse_viewport) {
 			io.AddMouseViewportEvent(mouse_viewport->ID);
 		} else {
 			io.AddMouseViewportEvent(0);
@@ -623,8 +625,9 @@ bool SdlEngine::get_window_size_and_framebuffer_scale(SDL_Window *p_window, ImVe
 SDL_Window *SdlEngine::get_window_from_viewport(ImGuiViewport *p_viewport) {
 	if (p_viewport) {
 		SDL_WindowID window_id = (SDL_WindowID)(intptr_t)p_viewport->PlatformHandle;
+		ERR_FAIL_COND_RET(window_id == 0, nullptr, "Invalid window id " + itos((intptr_t)p_viewport->PlatformHandle) + ".");
 		SDL_Window *window = SDL_GetWindowFromID(window_id);
-		ERR_FAIL_NULL_RET(window, nullptr, SDL_GetError());
+		// ERR_FAIL_NULL_RET(window, nullptr, SDL_GetError());
 		return window;
 	}
 	return nullptr;

@@ -119,19 +119,14 @@ const std::vector<const char *> optional_device_extensions{
 
 class VulkanEngine {
 public:
-	VulkanEngine(SDL_Window *p_window);
-
 	uint32_t api_version = APP_VULKAN_API_VERSION;
 
-	SDL_Window *sdl_window = nullptr;
 	VkInstance instance = VK_NULL_HANDLE;
-	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	VkPhysicalDevice physical_device = VK_NULL_HANDLE;
 	uint32_t queue_family = 0;
 	VkDevice device = VK_NULL_HANDLE;
 	VkQueue queue = VK_NULL_HANDLE;
 	VmaAllocator allocator = VK_NULL_HANDLE;
-	// VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
 	std::vector<uint8_t> pipeline_data;
 	VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
 
@@ -139,24 +134,22 @@ public:
 	std::set<const char *> active_device_extensions;
 	std::set<const char *> active_layers;
 
-	VkPhysicalDeviceSurfaceInfo2KHR surface_info{};
-	Window window{};
 	PipelineInfo pipeline_info_main{};
+	PipelineInfo pipeline_info_for_viewports{};
 
 	bool create_instance();
-	bool create_surface();
 	bool pick_physical_device();
 	bool create_device();
 	bool create_allocator();
 	bool create_pipeline_cache();
-	bool create_render_pass();
-	bool setup_swapchain();
-	bool create_swapchain(int p_width, int p_height);
-	bool create_command_buffers();
-	bool create_window(int p_width, int p_height);
+	bool create_surface(Window *p_window);
+	bool create_render_pass(Window *p_window);
+	bool setup_swapchain(Window *p_window);
+	bool create_swapchain(Window *p_window, int p_width, int p_height);
+	bool create_command_buffers(Window *p_window);
+	bool create_window(Window *p_window, int p_width, int p_height);
 
 	void cleanup();
-	~VulkanEngine();
 
 #ifdef DEBUG
 #ifndef NO_DEBUG_UTILS

@@ -34,8 +34,8 @@ AppState state{};
 float AppState::main_scale = 1.f;
 
 void SDL_AppQuit() {
-	if (state.window) {
-		SDL_HideWindow(state.window);
+	if (state.window->sdl_window) {
+		SDL_HideWindow(state.window->sdl_window);
 		if (state.vk_engine && state.vk_engine->device != VK_NULL_HANDLE) {
 			if (state.vk_engine->queue != VK_NULL_HANDLE) {
 				vkQueueWaitIdle(state.vk_engine->queue);
@@ -43,14 +43,14 @@ void SDL_AppQuit() {
 			vkDeviceWaitIdle(state.vk_engine->device);
 			if (state.imgui_engine) {
 				AssetLoader::cleanup(state.vk_engine);
-				state.imgui_engine->cleanup();
 				SdlEngine::cleanup();
+				state.imgui_engine->cleanup();
 				ImGui::DestroyContext();
 			}
+			state.window->cleanup(state.vk_engine->instance, state.vk_engine->device, true);
 			ERR_FAIL_COND(!state.vk_engine->device, "VkDevice already destroyed?");
 			state.vk_engine->cleanup();
 		}
-		SDL_DestroyWindow(state.window);
 		SDL_Quit();
 	}
 	embdfs::cleanup();
@@ -70,11 +70,13 @@ int main() {
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
 
 	state.main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-	SDL_Window *window = SDL_CreateWindow(APP_NAME, (int)(320_scaled), (int)(180_scaled), APP_SDL_FLAGS);
-	ERR_FAIL_NULL_RET_SDL(window, -1, SDL_GetError());
-	state.window = window;
+	SDL_Window *sdl_window = SDL_CreateWindow(APP_NAME, (int)(1280_scaled), (int)(720_scaled), APP_SDL_FLAGS);
+	ERR_FAIL_NULL_RET_SDL(sdl_window, -1, SDL_GetError());
+	Window window{};
+	window.sdl_window = sdl_window;
+	state.window = &window;
 
-	VulkanEngine vk_engine{ window };
+	VulkanEngine vk_engine{};
 	ERR_FAIL_COND_RET_SDL(volkInitialize() != VK_SUCCESS, -1, "Failed to initialize volk. Is Vulkan installed?");
 	state.vk_engine = &vk_engine;
 
@@ -82,24 +84,24 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(!vk_engine.pick_physical_device(), -1, "Failed to pick physical device.");
 	ERR_FAIL_COND_RET_SDL(!vk_engine.create_device(), -1, "Failed to create device.");
 	ERR_FAIL_COND_RET_SDL(!vk_engine.create_allocator(), -1, "Failed to create allocator.");
-	ERR_FAIL_COND_RET_SDL(!vk_engine.create_surface(), -1, "Failed to create surface.");
 	ERR_FAIL_COND_RET_SDL(!vk_engine.create_pipeline_cache(), -1, "Failed to create pipeline cache.");
 
 	ImGuiEngine imgui_engine{ &state, &vk_engine };
 	state.imgui_engine = &imgui_engine;
 	int w, h;
-	ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(window, &w, &h), -1, SDL_GetError());
-	ERR_FAIL_COND_RET_SDL(!SDL_ShowWindow(window), -1, SDL_GetError());
-	ERR_FAIL_COND_RET_SDL(!vk_engine.setup_swapchain(), -1, "Failed to setup swapchain.");
-	ERR_FAIL_COND_RET_SDL(!vk_engine.create_window(w, h), -1, "Failed to create window resources.");
+	ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(sdl_window, &w, &h), -1, SDL_GetError());
+	ERR_FAIL_COND_RET_SDL(!SDL_ShowWindow(sdl_window), -1, SDL_GetError());
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_surface(&window), -1, "Failed to create surface.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.setup_swapchain(&window), -1, "Failed to setup swapchain.");
+	ERR_FAIL_COND_RET_SDL(!vk_engine.create_window(&window, w, h), -1, "Failed to create window resources.");
 
-	ERR_FAIL_COND_RET_SDL(!imgui_engine.setup(), -1, "Failed to setup imgui engine.");
-	ERR_FAIL_COND_RET_SDL(!SdlEngine::setup(window), -1, "Failed to setup sdl engine.");
+	ERR_FAIL_COND_RET_SDL(!imgui_engine.setup(&window), -1, "Failed to setup imgui engine.");
+	ERR_FAIL_COND_RET_SDL(!SdlEngine::setup(sdl_window), -1, "Failed to setup sdl engine.");
 
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_fonts(), -1, "Failed to load initial fonts.");
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_textures(&imgui_engine), -1, "Failed to load initial textures.");
 
-	ERR_FAIL_COND_RET_SDL(!SDL_SetWindowHitTest(window, window_hit_test_callback, nullptr), -1, SDL_GetError());
+	ERR_FAIL_COND_RET_SDL(!SDL_SetWindowHitTest(sdl_window, window_hit_test_callback, nullptr), -1, SDL_GetError());
 
 	while (!state.done) {
 		uint64_t target_ms = 1000 / state.target_fps;
@@ -112,7 +114,7 @@ int main() {
 					state.done = true;
 					break;
 				case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-					if (event.window.windowID == SDL_GetWindowID(window)) {
+					if (event.window.windowID == SDL_GetWindowID(sdl_window)) {
 						state.done = true;
 					}
 					break;
@@ -121,25 +123,27 @@ int main() {
 			}
 		}
 
-		if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
+		if (SDL_GetWindowFlags(sdl_window) & SDL_WINDOW_MINIMIZED) {
 			SDL_Delay(10);
 			continue;
 		}
 
 		int fb_w, fb_h;
-		ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(window, &fb_w, &fb_h), 999, SDL_GetError());
-		if (fb_w > 0 && fb_h > 0 && (vk_engine.window.swapchain_rebuild || vk_engine.window.width != fb_w || vk_engine.window.height != fb_h)) {
-			vk_engine.create_window(fb_w, fb_h);
+		ERR_FAIL_COND_RET_SDL(!SDL_GetWindowSizeInPixels(sdl_window, &fb_w, &fb_h), 999, SDL_GetError());
+		if (fb_w > 0 && fb_h > 0 && (window.swapchain_rebuild || window.width != fb_w || window.height != fb_h)) {
+			vk_engine.create_window(&window, fb_w, fb_h);
 		}
 
 		ERR_FAIL_COND_RET_SDL(!imgui_engine.new_frame(), 1, "Failed to create new frame.");
-		if (!vk_engine.window.frame_acquired) {
+		if (!window.frame_acquired) {
 			continue;
 		}
 		SdlEngine::new_frame();
 		ImGui::NewFrame();
 
-		ImGui::ShowDemoWindow();
+		if (state.show_demo) {
+			ImGui::ShowDemoWindow();
+		}
 
 		ImGuiViewport *viewport = ImGui::GetMainViewport();
 		ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -150,31 +154,34 @@ int main() {
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 		if (ImGui::Begin("SpolayMainWindow", nullptr, window_flags)) {
-			ImGui::PopStyleVar(2);
+			ImGui::PopStyleVar(3);
 
 			if (ImGui::BeginMainMenuBar()) {
 				ImGui::PopStyleVar(2);
-				state.main_menu_bar.height = ImGui::GetCurrentWindowRead()->MenuBarHeight;
-
-				// Here place buttons
-
-				// No idea why, but there's a small edge on the left of 8px
-				state.main_menu_bar.left_edge = ImGui::GetCursorPosX() - 8;
-
-				ImVec2 buttonSize = ImVec2(state.main_menu_bar.height * 1.5f, state.main_menu_bar.height - 1);
-
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_MenuBarBg));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabActive));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabHovered));
+				state.main_menu_bar.height = ImGui::GetCurrentWindowRead()->MenuBarHeight;
 
+				ImVec2 buttonSize = ImVec2(state.main_menu_bar.height * 2.f, state.main_menu_bar.height - 1);
+
+				if (ImGui::Button("Demo", buttonSize)) {
+					state.show_demo = !state.show_demo;
+				}
+
+				// No idea why, but there's a small edge on the left of 8px
+				state.main_menu_bar.left_edge = ImGui::GetCursorPosX() - 8;
+
+				buttonSize.x = state.main_menu_bar.height * 1.5f;
 				state.main_menu_bar.right_edge = ImGui::GetWindowWidth() - buttonSize.x * 2;
 				ImGui::SetCursorPosX(state.main_menu_bar.right_edge);
 				if (ImGui::Button(ICON_VS_CHROME_MINIMIZE, buttonSize)) {
-					ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
+					ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(sdl_window), 999, SDL_GetError());
 				}
 
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, 0xFF7A70F1);
@@ -195,7 +202,7 @@ int main() {
 				}
 				if (ImGui::BeginPopup("WindowMenu")) {
 					if (ImGui::MenuItemEx("Minimize", ICON_VS_CHROME_MINIMIZE)) {
-						ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(window), 999, SDL_GetError());
+						ERR_FAIL_COND_RET_SDL(!SDL_MinimizeWindow(sdl_window), 999, SDL_GetError());
 					}
 
 					if (ImGui::MenuItemEx("Close", ICON_VS_CHROME_CLOSE, "Alt+F4")) {
@@ -208,17 +215,19 @@ int main() {
 			} else {
 				ImGui::PopStyleVar(2);
 			}
+
 			ImGui::End();
 		} else {
-			ImGui::PopStyleVar(4);
+			ImGui::PopStyleVar(5);
 		}
 
 		ImGui::Render();
 		ImDrawData *draw_data = ImGui::GetDrawData();
 		const bool is_minimized = (draw_data->DisplaySize.x <= 0.f || draw_data->DisplaySize.y <= 0.f);
 		if (!is_minimized) {
-			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_render(draw_data, vk_engine.window.width, vk_engine.window.height), 1, "Failed to render frame.");
-			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_present(), 1, "Failed to present frame to queue.");
+			ImGui::UpdatePlatformWindows();
+			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_render(&window, draw_data, window.width, window.height), 1, "Failed to render frame.");
+			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_present(&window), 1, "Failed to present frame to queue.");
 		}
 		uint64_t end = SDL_GetTicks();
 		if (end - start < target_ms) {

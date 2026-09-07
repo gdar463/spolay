@@ -24,6 +24,8 @@
 #include <cstdint>
 #include <string>
 
+#include "graphics/vulkan/window.hpp"
+
 #define APP_NAME "Spolay"
 #define APP_VULKAN_API_VERSION VK_API_VERSION_1_3
 #define APP_SDL_FLAGS SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY
@@ -41,10 +43,11 @@ struct MainMenuBarState {
 struct AppState {
 	static float main_scale;
 	float target_fps = 30.f;
-	SDL_Window *window = nullptr;
+	Window *window = nullptr;
 	VulkanEngine *vk_engine = nullptr;
 	ImGuiEngine *imgui_engine = nullptr;
 	bool done = false;
+	bool show_demo = false;
 	MainMenuBarState main_menu_bar{};
 };
 

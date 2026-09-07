@@ -38,9 +38,10 @@ struct WindowRenderBuffers {
 
 struct ImguiViewportData {
 	Window window;
-	WindowRenderBuffers render_buffers;
+	WindowRenderBuffers render_buffers{};
 
-	void cleanup(VmaAllocator p_allocator) {
+	void cleanup(VkInstance p_instance, VkDevice p_device, VmaAllocator p_allocator) {
 		render_buffers.cleanup(p_allocator);
+		window.cleanup(p_instance, p_device);
 	}
 };

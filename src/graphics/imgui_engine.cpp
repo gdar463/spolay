@@ -40,7 +40,7 @@ void ImGuiEngine::cleanup() {
 	for (int i = 0; i < platform_io.Viewports.Size; i++) {
 		ImguiViewportData *vd = (ImguiViewportData *)platform_io.Viewports[i]->RendererUserData;
 		if (vd) {
-			vd->cleanup(vk->allocator);
+			vd->cleanup(vk->instance, vk->device, vk->allocator);
 			delete vd;
 			platform_io.Viewports[i]->RendererUserData = nullptr;
 		}
@@ -62,8 +62,8 @@ void ImGuiEngine::cleanup() {
 	io.BackendRendererUserData = nullptr;
 }
 
-bool ImGuiEngine::setup() {
-	window = &vk->window;
+bool ImGuiEngine::setup(Window *p_window) {
+	window = p_window;
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
@@ -88,6 +88,7 @@ bool ImGuiEngine::setup() {
 	io.BackendRendererName = "imgui_impl_vulkan__spolay";
 	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 	io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
 
 	ImGuiViewport *main_viewport = ImGui::GetMainViewport();
 	main_viewport->RendererUserData = new ImguiViewportData();
@@ -97,12 +98,11 @@ bool ImGuiEngine::setup() {
 	platform_io.DrawCallback_ResetRenderState = draw_callback__reset_render_state;
 	platform_io.DrawCallback_SetSamplerLinear = draw_callback__set_sampler_linear;
 	platform_io.DrawCallback_SetSamplerNearest = draw_callback__set_sampler_nearest;
-	// TODO: MultiViewportSupport
-	// platform_io.Renderer_CreateWindow = create_window;
-	// platform_io.Renderer_DestroyWindow = destroy_window;
-	// platform_io.Renderer_SetWindowSize = set_window_size;
-	// platform_io.Renderer_RenderWindow = render_window;
-	// platform_io.Renderer_SwapBuffers = swap_buffers;
+	platform_io.Renderer_CreateWindow = create_window;
+	platform_io.Renderer_DestroyWindow = destroy_window;
+	platform_io.Renderer_SetWindowSize = set_window_size;
+	platform_io.Renderer_RenderWindow = render_window;
+	platform_io.Renderer_SwapBuffers = swap_buffers;
 
 	ERR_FAIL_COND_RET(!setup_objects(), false, "Failed to create device objects.");
 	return true;
@@ -238,108 +238,8 @@ bool ImGuiEngine::setup_objects() {
 	}
 
 	vk->pipeline_info_main.render_pass = window->render_pass;
-
-	{
-		VkPipelineShaderStageCreateInfo stage_create_infos[2]{};
-		stage_create_infos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage_create_infos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-		stage_create_infos[0].module = bd->shader_module_vert;
-		stage_create_infos[0].pName = "main";
-		stage_create_infos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage_create_infos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		stage_create_infos[1].module = bd->shader_module_frag;
-		stage_create_infos[1].pName = "main";
-
-		VkVertexInputBindingDescription binding_description{};
-		binding_description.stride = sizeof(ImDrawVert);
-		binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-		VkVertexInputAttributeDescription attribute_descriptions[3]{};
-		attribute_descriptions[0].location = 0;
-		attribute_descriptions[0].binding = binding_description.binding;
-		attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-		attribute_descriptions[0].offset = offsetof(ImDrawVert, pos);
-		attribute_descriptions[1].location = 1;
-		attribute_descriptions[1].binding = binding_description.binding;
-		attribute_descriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-		attribute_descriptions[1].offset = offsetof(ImDrawVert, uv);
-		attribute_descriptions[2].location = 2;
-		attribute_descriptions[2].binding = binding_description.binding;
-		attribute_descriptions[2].format = VK_FORMAT_R8G8B8A8_UNORM;
-		attribute_descriptions[2].offset = offsetof(ImDrawVert, col);
-
-		VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
-		vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
-		vertex_input_state_create_info.pVertexBindingDescriptions = &binding_description;
-		vertex_input_state_create_info.vertexAttributeDescriptionCount = 3;
-		vertex_input_state_create_info.pVertexAttributeDescriptions = attribute_descriptions;
-
-		VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
-		input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-		VkPipelineViewportStateCreateInfo viewport_state_create_info{};
-		viewport_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewport_state_create_info.viewportCount = 1;
-		viewport_state_create_info.scissorCount = 1;
-
-		VkPipelineRasterizationStateCreateInfo rasterization_state_create_info{};
-		rasterization_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterization_state_create_info.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterization_state_create_info.cullMode = VK_CULL_MODE_NONE;
-		rasterization_state_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		rasterization_state_create_info.lineWidth = 1.f;
-
-		VkPipelineMultisampleStateCreateInfo multisample_state_create_info{};
-		multisample_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisample_state_create_info.rasterizationSamples = (vk->pipeline_info_main.msaa_samples != 0) ? vk->pipeline_info_main.msaa_samples : VK_SAMPLE_COUNT_1_BIT;
-
-		VkPipelineColorBlendAttachmentState color_blend_attachment_state{};
-		color_blend_attachment_state.blendEnable = VK_TRUE;
-		color_blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		color_blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		color_blend_attachment_state.colorBlendOp = VK_BLEND_OP_ADD;
-		color_blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		color_blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		color_blend_attachment_state.alphaBlendOp = VK_BLEND_OP_ADD;
-		color_blend_attachment_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-		VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info{};
-		depth_stencil_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-
-		VkPipelineColorBlendStateCreateInfo color_blend_state_create_info{};
-		color_blend_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		color_blend_state_create_info.attachmentCount = 1;
-		color_blend_state_create_info.pAttachments = &color_blend_attachment_state;
-
-		std::vector<VkDynamicState> dynamic_states = vk->pipeline_info_main.dynamic_states;
-		dynamic_states.push_back(VK_DYNAMIC_STATE_VIEWPORT);
-		dynamic_states.push_back(VK_DYNAMIC_STATE_SCISSOR);
-		VkPipelineDynamicStateCreateInfo dynamic_state_create_info{};
-		dynamic_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamic_state_create_info.dynamicStateCount = dynamic_states.size();
-		dynamic_state_create_info.pDynamicStates = dynamic_states.data();
-
-		VkGraphicsPipelineCreateInfo pipeline_create_info{};
-		pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipeline_create_info.stageCount = 2;
-		pipeline_create_info.pStages = stage_create_infos;
-		pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
-		pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
-		pipeline_create_info.pViewportState = &viewport_state_create_info;
-		pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
-		pipeline_create_info.pMultisampleState = &multisample_state_create_info;
-		pipeline_create_info.pDepthStencilState = &depth_stencil_state_create_info;
-		pipeline_create_info.pColorBlendState = &color_blend_state_create_info;
-		pipeline_create_info.pDynamicState = &dynamic_state_create_info;
-		pipeline_create_info.layout = bd->pipeline_layout;
-		pipeline_create_info.renderPass = vk->pipeline_info_main.render_pass;
-		pipeline_create_info.subpass = vk->pipeline_info_main.subpass;
-
-		ERR_FAIL_VK_RET(vkCreateGraphicsPipelines(vk->device, vk->pipeline_cache, 1, &pipeline_create_info, nullptr, &bd->pipeline), false, "Failed to create main pipeline.");
-		DEBUG_NAME_VK(bd->pipeline, VK_OBJECT_TYPE_PIPELINE, "BackendData/Pipeline");
-	}
+	bd->pipeline = create_pipeline(&vk->pipeline_info_main);
+	ERR_FAIL_COND_RET(bd->pipeline == VK_NULL_HANDLE, false, "Failed to create main pipeline.");
 
 	{
 		VkCommandPoolCreateInfo command_pool_create_info{};
@@ -358,35 +258,148 @@ bool ImGuiEngine::setup_objects() {
 	}
 	return true;
 }
+VkPipeline ImGuiEngine::create_pipeline(PipelineInfo *p_info) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL_RET(bd, VK_NULL_HANDLE, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
+
+	VkPipelineShaderStageCreateInfo stage_create_infos[2]{};
+	stage_create_infos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stage_create_infos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	stage_create_infos[0].module = bd->shader_module_vert;
+	stage_create_infos[0].pName = "main";
+	stage_create_infos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stage_create_infos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	stage_create_infos[1].module = bd->shader_module_frag;
+	stage_create_infos[1].pName = "main";
+
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.stride = sizeof(ImDrawVert);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	VkVertexInputAttributeDescription attribute_descriptions[3]{};
+	attribute_descriptions[0].location = 0;
+	attribute_descriptions[0].binding = binding_description.binding;
+	attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+	attribute_descriptions[0].offset = offsetof(ImDrawVert, pos);
+	attribute_descriptions[1].location = 1;
+	attribute_descriptions[1].binding = binding_description.binding;
+	attribute_descriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+	attribute_descriptions[1].offset = offsetof(ImDrawVert, uv);
+	attribute_descriptions[2].location = 2;
+	attribute_descriptions[2].binding = binding_description.binding;
+	attribute_descriptions[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+	attribute_descriptions[2].offset = offsetof(ImDrawVert, col);
+
+	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
+	vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
+	vertex_input_state_create_info.pVertexBindingDescriptions = &binding_description;
+	vertex_input_state_create_info.vertexAttributeDescriptionCount = 3;
+	vertex_input_state_create_info.pVertexAttributeDescriptions = attribute_descriptions;
+
+	VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
+	input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	VkPipelineViewportStateCreateInfo viewport_state_create_info{};
+	viewport_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewport_state_create_info.viewportCount = 1;
+	viewport_state_create_info.scissorCount = 1;
+
+	VkPipelineRasterizationStateCreateInfo rasterization_state_create_info{};
+	rasterization_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterization_state_create_info.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterization_state_create_info.cullMode = VK_CULL_MODE_NONE;
+	rasterization_state_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterization_state_create_info.lineWidth = 1.f;
+
+	VkPipelineMultisampleStateCreateInfo multisample_state_create_info{};
+	multisample_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisample_state_create_info.rasterizationSamples = (p_info->msaa_samples != 0) ? p_info->msaa_samples : VK_SAMPLE_COUNT_1_BIT;
+
+	VkPipelineColorBlendAttachmentState color_blend_attachment_state{};
+	color_blend_attachment_state.blendEnable = VK_TRUE;
+	color_blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	color_blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	color_blend_attachment_state.colorBlendOp = VK_BLEND_OP_ADD;
+	color_blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	color_blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	color_blend_attachment_state.alphaBlendOp = VK_BLEND_OP_ADD;
+	color_blend_attachment_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+	VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info{};
+	depth_stencil_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+
+	VkPipelineColorBlendStateCreateInfo color_blend_state_create_info{};
+	color_blend_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	color_blend_state_create_info.attachmentCount = 1;
+	color_blend_state_create_info.pAttachments = &color_blend_attachment_state;
+
+	std::vector<VkDynamicState> dynamic_states = p_info->dynamic_states;
+	dynamic_states.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	dynamic_states.push_back(VK_DYNAMIC_STATE_SCISSOR);
+	VkPipelineDynamicStateCreateInfo dynamic_state_create_info{};
+	dynamic_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamic_state_create_info.dynamicStateCount = dynamic_states.size();
+	dynamic_state_create_info.pDynamicStates = dynamic_states.data();
+
+	VkGraphicsPipelineCreateInfo pipeline_create_info{};
+	pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline_create_info.stageCount = 2;
+	pipeline_create_info.pStages = stage_create_infos;
+	pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
+	pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
+	pipeline_create_info.pViewportState = &viewport_state_create_info;
+	pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
+	pipeline_create_info.pMultisampleState = &multisample_state_create_info;
+	pipeline_create_info.pDepthStencilState = &depth_stencil_state_create_info;
+	pipeline_create_info.pColorBlendState = &color_blend_state_create_info;
+	pipeline_create_info.pDynamicState = &dynamic_state_create_info;
+	pipeline_create_info.layout = bd->pipeline_layout;
+	pipeline_create_info.renderPass = p_info->render_pass;
+	pipeline_create_info.subpass = p_info->subpass;
+
+	VkPipeline pipeline;
+	ERR_FAIL_VK_RET(vkCreateGraphicsPipelines(vk->device, vk->pipeline_cache, 1, &pipeline_create_info, nullptr, &pipeline), VK_NULL_HANDLE, "Failed to create pipeline.");
+	DEBUG_NAME_VK(pipeline, VK_OBJECT_TYPE_PIPELINE, bd->pipeline == VK_NULL_HANDLE ? "BackendData/Pipeline" : "BackendData/Pipeline Viewports");
+	return pipeline;
+}
 
 bool ImGuiEngine::new_frame() {
-	ERR_FAIL_COND_RET(!acquire_next_image(), false, "Failed to acquire next image.");
+	ERR_FAIL_COND_RET(!acquire_next_image(window), false, "Failed to acquire next image.");
 	return true;
 }
 
-bool ImGuiEngine::acquire_next_image() {
-	window->frame_acquired = false;
-	VkSemaphore image_acquired = window->semaphores[window->semaphore_index].image_acquired;
-	VkResult err = vkAcquireNextImageKHR(vk->device, window->swapchain, UINT64_MAX, image_acquired, VK_NULL_HANDLE, &window->frame_index);
+bool ImGuiEngine::acquire_next_image(Window *p_window) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
+	p_window->frame_acquired = false;
+	VkSemaphore image_acquired = p_window->semaphores[p_window->semaphore_index].image_acquired;
+	VkResult err = vkAcquireNextImageKHR(vk->device, p_window->swapchain, UINT64_MAX, image_acquired, VK_NULL_HANDLE, &p_window->frame_index);
 	if (unlikely(err == VK_SUBOPTIMAL_KHR)) {
-		window->swapchain_rebuild = true;
-		window->frame_acquired = true;
+		p_window->swapchain_rebuild = true;
+		p_window->frame_acquired = true;
 	} else if (unlikely(err == VK_ERROR_OUT_OF_DATE_KHR)) {
-		window->swapchain_rebuild = true;
+		p_window->swapchain_rebuild = true;
 		return true;
 	} else {
 		ERR_FAIL_VK_RET(err, false, "Failed to acquire next image, error: " + itos(err) + ".");
 	}
-	window->frame_acquired = true;
+	p_window->frame_acquired = true;
 	return true;
 }
 
-bool ImGuiEngine::frame_render(ImDrawData *p_draw_data, int p_width, int p_height) {
-	ERR_FAIL_COND_RET(!window->frame_acquired, false, "Cannot render without an acquired swapchain image.");
-	VkSemaphore image_acquired = window->semaphores[window->semaphore_index].image_acquired;
-	VkSemaphore render_complete = window->semaphores[window->semaphore_index].render_complete;
+bool ImGuiEngine::frame_render(Window *p_window, ImDrawData *p_draw_data, int p_width, int p_height) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
+	ERR_FAIL_COND_RET(!p_window->frame_acquired, false, "Cannot render without an acquired swapchain image.");
+	VkSemaphore image_acquired = p_window->semaphores[p_window->semaphore_index].image_acquired;
+	VkSemaphore render_complete = p_window->semaphores[p_window->semaphore_index].render_complete;
 
-	Frame *frame = &window->frames[window->frame_index];
+	Frame *frame = &p_window->frames[p_window->frame_index];
 
 	ERR_FAIL_VK_RET(vkWaitForFences(vk->device, 1, &frame->fence, VK_TRUE, UINT64_MAX), false, "Failed to wait for fences.");
 	ERR_FAIL_VK_RET(vkResetFences(vk->device, 1, &frame->fence), false, "Failed to reset fence.");
@@ -400,15 +413,15 @@ bool ImGuiEngine::frame_render(ImDrawData *p_draw_data, int p_width, int p_heigh
 
 	VkRenderPassBeginInfo render_pass_begin_info{};
 	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = window->render_pass;
+	render_pass_begin_info.renderPass = p_window->render_pass;
 	render_pass_begin_info.framebuffer = frame->frame_buffer;
 	render_pass_begin_info.renderArea.extent.width = p_width;
 	render_pass_begin_info.renderArea.extent.height = p_height;
 	render_pass_begin_info.clearValueCount = 1;
-	render_pass_begin_info.pClearValues = &window->clear_value;
+	render_pass_begin_info.pClearValues = &p_window->clear_value;
 	vkCmdBeginRenderPass(frame->command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-	ERR_FAIL_COND_RET(!render_draw_data(p_draw_data, frame->command_buffer, p_width, p_height), false, "Failed to render draw data.");
+	ERR_FAIL_COND_RET(!render_draw_data(p_window, p_draw_data, frame->command_buffer, p_width, p_height), false, "Failed to render draw data.");
 
 	vkCmdEndRenderPass(frame->command_buffer);
 	ERR_FAIL_VK_RET(vkEndCommandBuffer(frame->command_buffer), false, "Failed to end command buffer.");
@@ -456,24 +469,25 @@ bool ImGuiEngine::frame_render(ImDrawData *p_draw_data, int p_width, int p_heigh
 
 	return true;
 }
-bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_command_buffer, int p_width, int p_height) {
+bool ImGuiEngine::render_draw_data(Window *p_window, ImDrawData *p_draw_data, VkCommandBuffer p_command_buffer, int p_width, int p_height) {
 	if (p_draw_data->Textures != nullptr) {
 		for (ImTextureData *texture : *p_draw_data->Textures) {
 			if (texture->Status != ImTextureStatus_OK) {
-				ERR_FAIL_COND_RET(!update_texture(texture), false, "Failed to update texture.");
+				ERR_FAIL_COND_RET(!update_texture(p_window, texture), false, "Failed to update texture.");
 			}
 		}
 	}
 
 	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
 	ImguiViewportData *vd = (ImguiViewportData *)p_draw_data->OwnerViewport->RendererUserData;
 	ERR_FAIL_NULL_RET(vd, false, "ViewportData is null.");
 
 	WindowRenderBuffers *wrb = &vd->render_buffers;
 	if (wrb->buffers.size() == 0) {
 		wrb->index = 0;
-		wrb->count = window->frames_count;
+		wrb->count = p_window->frames_count;
 		wrb->buffers.resize(wrb->count);
 	}
 	wrb->index = (wrb->index + 1) % wrb->count;
@@ -608,28 +622,31 @@ bool ImGuiEngine::render_draw_data(ImDrawData *p_draw_data, VkCommandBuffer p_co
 	bd->render_state = nullptr;
 	return true;
 }
-bool ImGuiEngine::frame_present() {
-	ERR_FAIL_COND_RET(!window->frame_acquired, false, "Cannot present without an acquired swapchain image.");
+bool ImGuiEngine::frame_present(Window *p_window) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
+	ERR_FAIL_COND_RET(!p_window->frame_acquired, false, "Cannot present without an acquired swapchain image.");
 
-	VkSemaphore render_complete = window->semaphores[window->semaphore_index].render_complete;
+	VkSemaphore render_complete = p_window->semaphores[p_window->semaphore_index].render_complete;
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	present_info.waitSemaphoreCount = 1;
 	present_info.pWaitSemaphores = &render_complete;
 	present_info.swapchainCount = 1;
-	present_info.pSwapchains = &window->swapchain;
-	present_info.pImageIndices = &window->frame_index;
+	present_info.pSwapchains = &p_window->swapchain;
+	present_info.pImageIndices = &p_window->frame_index;
 	VkResult err = vkQueuePresentKHR(vk->queue, &present_info);
 	if (unlikely(err == VK_SUBOPTIMAL_KHR)) {
-		window->swapchain_rebuild = true;
+		p_window->swapchain_rebuild = true;
 	} else if (unlikely(err == VK_ERROR_OUT_OF_DATE_KHR)) {
-		window->swapchain_rebuild = true;
+		p_window->swapchain_rebuild = true;
 	} else {
 		ERR_FAIL_VK_RET(err, false, "Failed to present to queue, error: " + itos(err) + ".");
 	}
 
-	window->semaphore_index = (window->semaphore_index + 1) % window->semaphores_count;
-	window->frame_acquired = false;
+	p_window->semaphore_index = (p_window->semaphore_index + 1) % p_window->semaphores_count;
+	p_window->frame_acquired = false;
 	return true;
 }
 
@@ -642,14 +659,15 @@ Texture *ImGuiEngine::load_texture(const uint8_t *p_buffer, int p_size) {
 	memcpy(texture_data.Pixels, image_data, texture_data.GetSizeInBytes());
 	stbi_image_free(image_data);
 
-	ERR_FAIL_COND_RET(!update_texture(&texture_data), nullptr, "Failed to create new texture.");
+	ERR_FAIL_COND_RET(!update_texture(window, &texture_data), nullptr, "Failed to create new texture.");
 
 	return (Texture *)texture_data.BackendUserData;
 }
 
-bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
+bool ImGuiEngine::update_texture(Window *p_window, ImTextureData *p_texture) {
 	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL_RET(bd, false, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
 
 	if (p_texture->Status == ImTextureStatus_WantCreate) {
 		ERR_FAIL_COND_RET(p_texture->TexID != ImTextureID_Invalid, false, "TextureID is not invalid while creating it.");
@@ -913,7 +931,7 @@ bool ImGuiEngine::update_texture(ImTextureData *p_texture) {
 		p_texture->SetStatus(ImTextureStatus_OK);
 	}
 
-	if (p_texture->Status == ImTextureStatus_WantDestroy && p_texture->UnusedFrames >= (int)window->frames_count) {
+	if (p_texture->Status == ImTextureStatus_WantDestroy && p_texture->UnusedFrames >= (int)p_window->frames_count) {
 		Texture *bd_texture = (Texture *)p_texture->BackendUserData;
 		if (bd_texture) {
 			bd_texture->cleanup(vk->device, vk->allocator, bd->descriptor_pool);
@@ -964,6 +982,70 @@ void ImGuiEngine::draw_callback__set_sampler_nearest(const ImDrawList *, const I
 	ERR_FAIL_NULL(bd, "BackendData is null.");
 
 	vkCmdBindDescriptorSets(bd->render_state->command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->render_state->pipeline_layout, 1, 1, &bd->sampler_nearest_descriptor_set, 0, nullptr);
+}
+
+void ImGuiEngine::create_window(ImGuiViewport *p_viewport) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL(bd, "BackendData is null.");
+	ImguiViewportData *vd = new ImguiViewportData();
+	VulkanEngine *vk = bd->vk;
+
+	SDL_Window *window = SDL_GetWindowFromID((intptr_t)p_viewport->PlatformHandle);
+	vd->window.sdl_window = window;
+
+	ERR_FAIL_COND(!vk->create_surface(&vd->window), "Failed to create surface.");
+	ERR_FAIL_COND(!vk->setup_swapchain(&vd->window), "Failed to setup swapchain.");
+	ERR_FAIL_COND(!vk->create_window(&vd->window, p_viewport->Size.x, p_viewport->Size.y), "Failed to create window resources.");
+	if (bd->pipeline_for_viewports == VK_NULL_HANDLE) {
+		vk->pipeline_info_for_viewports.render_pass = vd->window.render_pass;
+		bd->pipeline_for_viewports = create_pipeline(&vk->pipeline_info_for_viewports);
+	}
+}
+void ImGuiEngine::destroy_window(ImGuiViewport *p_viewport) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL(bd, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
+
+	ImguiViewportData *vd = (ImguiViewportData *)p_viewport->RendererUserData;
+	if (vd) {
+		vd->cleanup(vk->instance, vk->device, vk->allocator);
+		delete vd;
+		vd = nullptr;
+		p_viewport->RendererUserData = nullptr;
+	}
+}
+void ImGuiEngine::set_window_size(ImGuiViewport *p_viewport, ImVec2 p_size) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL(bd, "BackendData is null.");
+	VulkanEngine *vk = bd->vk;
+
+	ImguiViewportData *vd = (ImguiViewportData *)p_viewport->RendererUserData;
+	if (!vd) {
+		return;
+	}
+	vd->window.color_attachment.loadOp = (p_viewport->Flags & ImGuiViewportFlags_NoRendererClear) ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vk->create_window(&vd->window, p_size.x, p_size.y);
+}
+void ImGuiEngine::render_window(ImGuiViewport *p_viewport, void *) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL(bd, "BackendData is null.");
+
+	ImguiViewportData *vd = (ImguiViewportData *)p_viewport->RendererUserData;
+	if (!vd) {
+		return;
+	}
+	ERR_FAIL_COND(!acquire_next_image(&vd->window), "Failed to acquire next image.");
+	ERR_FAIL_COND(!frame_render(&vd->window, p_viewport->DrawData, p_viewport->Size.x, p_viewport->Size.y), "Failed to render frame.");
+}
+void ImGuiEngine::swap_buffers(ImGuiViewport *p_viewport, void *) {
+	ImGuiBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL(bd, "BackendData is null.");
+
+	ImguiViewportData *vd = (ImguiViewportData *)p_viewport->RendererUserData;
+	if (!vd) {
+		return;
+	}
+	ERR_FAIL_COND(!frame_present(&vd->window), "Failed to present frame.");
 }
 
 ImGuiBackendData *ImGuiEngine::get_backend_data() {

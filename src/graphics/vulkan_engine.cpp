@@ -27,16 +27,11 @@
 #include <iostream>
 #endif
 
-VulkanEngine::VulkanEngine(SDL_Window *p_window) {
-	sdl_window = p_window;
-}
-VulkanEngine::~VulkanEngine() {}
 void VulkanEngine::cleanup() {
 	if (instance != VK_NULL_HANDLE) {
 		if (device != VK_NULL_HANDLE) {
 			vkDeviceWaitIdle(device);
 
-			window.cleanup(device);
 			if (pipeline_cache != VK_NULL_HANDLE) {
 				vkDestroyPipelineCache(device, pipeline_cache, nullptr);
 			}
@@ -49,19 +44,12 @@ void VulkanEngine::cleanup() {
 #endif
 				vmaDestroyAllocator(allocator);
 			}
-			if (surface != VK_NULL_HANDLE) {
-				vkDestroySurfaceKHR(instance, surface, nullptr);
-			}
 			vkDestroyDevice(device, nullptr);
 		}
 		vkDestroyInstance(instance, nullptr);
 	}
 }
 
-bool VulkanEngine::create_surface() {
-	ERR_FAIL_COND_RET(!SDL_Vulkan_CreateSurface(sdl_window, instance, nullptr, &surface), false, "Failed to create Vulkan surface.");
-	return true;
-}
 bool VulkanEngine::create_instance() {
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -237,161 +225,157 @@ bool VulkanEngine::create_pipeline_cache() {
 	DEBUG_NAME(pipeline_cache, VK_OBJECT_TYPE_PIPELINE_CACHE, "PipelineCache");
 	return true;
 }
-bool VulkanEngine::create_render_pass() {
-	if (active_device_extensions.contains(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
-		VkAttachmentDescription2 color_attachment{};
-		color_attachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
-		color_attachment.format = window.swapchain_format.format;
-		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-		VkAttachmentReference2 color_attachment_ref{};
-		color_attachment_ref.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
-		color_attachment_ref.attachment = 0;
-		color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		color_attachment_ref.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-		VkSubpassDescription2 subpass_description{};
-		subpass_description.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass_description.colorAttachmentCount = 1;
-		subpass_description.pColorAttachments = &color_attachment_ref;
-
-		VkSubpassDependency2 subpass_dependency{};
-		subpass_dependency.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
-		subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		subpass_dependency.dstSubpass = 0;
-		subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		subpass_dependency.srcAccessMask = 0;
-		subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-		VkRenderPassCreateInfo2 render_pass_create_info{};
-		render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
-		render_pass_create_info.attachmentCount = 1;
-		render_pass_create_info.pAttachments = &color_attachment;
-		render_pass_create_info.subpassCount = 1;
-		render_pass_create_info.pSubpasses = &subpass_description;
-		render_pass_create_info.dependencyCount = 1;
-		render_pass_create_info.pDependencies = &subpass_dependency;
-		ERR_FAIL_VK_RET(vkCreateRenderPass2(device, &render_pass_create_info, nullptr, &window.render_pass), false, "Failed to create render pass.");
-		DEBUG_NAME(window.render_pass, VK_OBJECT_TYPE_RENDER_PASS, "Window/RenderPass2");
-	} else {
-		VkAttachmentDescription color_attachment{};
-		color_attachment.format = window.swapchain_format.format;
-		color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-		VkAttachmentReference color_attachment_ref{};
-		color_attachment_ref.attachment = 0;
-		color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpass_description{};
-		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass_description.colorAttachmentCount = 1;
-		subpass_description.pColorAttachments = &color_attachment_ref;
-
-		VkSubpassDependency subpass_dependency{};
-		subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		subpass_dependency.dstSubpass = 0;
-		subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		subpass_dependency.srcAccessMask = 0;
-		subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-		VkRenderPassCreateInfo render_pass_create_info{};
-		render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		render_pass_create_info.attachmentCount = 1;
-		render_pass_create_info.pAttachments = &color_attachment;
-		render_pass_create_info.subpassCount = 1;
-		render_pass_create_info.pSubpasses = &subpass_description;
-		render_pass_create_info.dependencyCount = 1;
-		render_pass_create_info.pDependencies = &subpass_dependency;
-		ERR_FAIL_VK_RET(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &window.render_pass), false, "Failed to create render pass.");
-		DEBUG_NAME(window.render_pass, VK_OBJECT_TYPE_RENDER_PASS, "Window/RenderPass");
-	}
-	ERR_FAIL_COND_RET(window.render_pass == VK_NULL_HANDLE, false, "VkRenderPass is null, but create did not error.");
+bool VulkanEngine::create_surface(Window *p_window) {
+	ERR_FAIL_COND_RET(!SDL_Vulkan_CreateSurface(p_window->sdl_window, instance, nullptr, &p_window->surface), false, SDL_GetError());
 	return true;
 }
-bool VulkanEngine::setup_swapchain() {
+bool VulkanEngine::create_render_pass(Window *p_window) {
+	// if (active_device_extensions.contains(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
+	// 	VkAttachmentDescription2 color_attachment{};
+	// 	color_attachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
+	// 	color_attachment.format = p_window->swapchain_format.format;
+	// 	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	// 	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	// 	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	// 	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	// 	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	// 	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	// 	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	//
+	// 	VkAttachmentReference2 color_attachment_ref{};
+	// 	color_attachment_ref.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+	// 	color_attachment_ref.attachment = 0;
+	// 	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	// 	color_attachment_ref.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	//
+	// 	VkSubpassDescription2 subpass_description{};
+	// 	subpass_description.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
+	// 	subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	// 	subpass_description.colorAttachmentCount = 1;
+	// 	subpass_description.pColorAttachments = &color_attachment_ref;
+	//
+	// 	VkSubpassDependency2 subpass_dependency{};
+	// 	subpass_dependency.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
+	// 	subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	// 	subpass_dependency.dstSubpass = 0;
+	// 	subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// 	subpass_dependency.srcAccessMask = 0;
+	// 	subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// 	subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//
+	// 	VkRenderPassCreateInfo2 render_pass_create_info{};
+	// 	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
+	// 	render_pass_create_info.attachmentCount = 1;
+	// 	render_pass_create_info.pAttachments = &color_attachment;
+	// 	render_pass_create_info.subpassCount = 1;
+	// 	render_pass_create_info.pSubpasses = &subpass_description;
+	// 	render_pass_create_info.dependencyCount = 1;
+	// 	render_pass_create_info.pDependencies = &subpass_dependency;
+	// 	ERR_FAIL_VK_RET(vkCreateRenderPass2(device, &render_pass_create_info, nullptr, &p_window->render_pass), false, "Failed to create render pass.");
+	// 	DEBUG_NAME(p_window->render_pass, VK_OBJECT_TYPE_RENDER_PASS, "Window/RenderPass2");
+	// } else {
+	p_window->color_attachment.format = p_window->swapchain_format.format;
+
+	VkAttachmentReference color_attachment_ref{};
+	color_attachment_ref.attachment = 0;
+	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass_description{};
+	subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass_description.colorAttachmentCount = 1;
+	subpass_description.pColorAttachments = &color_attachment_ref;
+
+	VkSubpassDependency subpass_dependency{};
+	subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	subpass_dependency.dstSubpass = 0;
+	subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpass_dependency.srcAccessMask = 0;
+	subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkRenderPassCreateInfo render_pass_create_info{};
+	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	render_pass_create_info.attachmentCount = 1;
+	render_pass_create_info.pAttachments = &p_window->color_attachment;
+	render_pass_create_info.subpassCount = 1;
+	render_pass_create_info.pSubpasses = &subpass_description;
+	render_pass_create_info.dependencyCount = 1;
+	render_pass_create_info.pDependencies = &subpass_dependency;
+	ERR_FAIL_VK_RET(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &p_window->render_pass), false, "Failed to create render pass.");
+	DEBUG_NAME(p_window->render_pass, VK_OBJECT_TYPE_RENDER_PASS, "Window/RenderPass");
+	// }
+	ERR_FAIL_COND_RET(p_window->render_pass == VK_NULL_HANDLE, false, "VkRenderPass is null, but create did not error.");
+	return true;
+}
+bool VulkanEngine::setup_swapchain(Window *p_window) {
 	VkBool32 res;
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family, surface, &res), false, "Physical device doesn't support WSI.");
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family, p_window->surface, &res), false, "Physical device doesn't support WSI.");
 	const std::vector<VkFormat> request_surface_info_formats{ VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
 	const VkColorSpaceKHR request_surface_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 
-	surface_info.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR;
-	surface_info.surface = surface;
+	p_window->surface_info.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR;
+	p_window->surface_info.surface = p_window->surface;
 	uint32_t surface_formats_count = 0;
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &surface_info, &surface_formats_count, nullptr), false, "Failed to get physical device surface formats.");
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &p_window->surface_info, &surface_formats_count, nullptr), false, "Failed to get physical device surface formats.");
 	std::vector<VkSurfaceFormat2KHR> surface_formats(surface_formats_count);
 	for (uint32_t i = 0; i < surface_formats_count; i++) {
 		surface_formats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR;
 	}
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &surface_info, &surface_formats_count, surface_formats.data()), false, "Failed to get physical device surface formats.");
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceFormats2KHR(physical_device, &p_window->surface_info, &surface_formats_count, surface_formats.data()), false, "Failed to get physical device surface formats.");
 
 	if (surface_formats_count == 1) {
 		if (surface_formats[0].surfaceFormat.format == VK_FORMAT_UNDEFINED) {
-			window.swapchain_format.format = request_surface_info_formats[0];
-			window.swapchain_format.colorSpace = request_surface_color_space;
+			p_window->swapchain_format.format = request_surface_info_formats[0];
+			p_window->swapchain_format.colorSpace = request_surface_color_space;
 		} else {
-			window.swapchain_format = surface_formats[0].surfaceFormat;
+			p_window->swapchain_format = surface_formats[0].surfaceFormat;
 		}
 	} else {
 		for (uint32_t i = 0; i < request_surface_info_formats.size(); i++) {
 			for (uint32_t j = 0; j < surface_formats_count; j++) {
 				if (surface_formats[j].surfaceFormat.format == request_surface_info_formats[i] && surface_formats[j].surfaceFormat.colorSpace == request_surface_color_space) {
-					window.swapchain_format = surface_formats[j].surfaceFormat;
+					p_window->swapchain_format = surface_formats[j].surfaceFormat;
 					goto endloop;
 				}
 			}
 		}
-		window.swapchain_format = surface_formats[0].surfaceFormat;
+		p_window->swapchain_format = surface_formats[0].surfaceFormat;
 	}
 endloop:
-	window.swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+	p_window->swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	return true;
 }
-bool VulkanEngine::create_swapchain(int p_width, int p_height) {
-	VkSwapchainKHR old_swapchain = window.swapchain;
-	window.swapchain = VK_NULL_HANDLE;
+bool VulkanEngine::create_swapchain(Window *p_window, int p_width, int p_height) {
+	VkSwapchainKHR old_swapchain = p_window->swapchain;
+	p_window->swapchain = VK_NULL_HANDLE;
 	ERR_FAIL_VK_RET(vkDeviceWaitIdle(device), false, "Failed to wait for idle device.");
 	if (queue != VK_NULL_HANDLE) {
 		ERR_FAIL_VK_RET(vkQueueWaitIdle(queue), false, "Failed to wait for idle queue.");
 	}
-	window.min_image_count = 2;
+	p_window->min_image_count = 2;
 
 	if (old_swapchain != VK_NULL_HANDLE) {
-		window.cleanup(device, true);
+		p_window->cleanup(instance, device);
 	}
 
 	// TODO: Check for support of 2 and remove from essential extensions
 	VkSurfaceCapabilities2KHR capabilities{};
 	capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
-	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceCapabilities2KHR(physical_device, &surface_info, &capabilities), false, "Failed to get physical device surface capabilities.");
+	ERR_FAIL_VK_RET(vkGetPhysicalDeviceSurfaceCapabilities2KHR(physical_device, &p_window->surface_info, &capabilities), false, "Failed to get physical device surface capabilities.");
 	VkSurfaceCapabilitiesKHR surface_capabilities = capabilities.surfaceCapabilities;
 
 	VkSwapchainCreateInfoKHR swapchain_create_info{};
 	swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swapchain_create_info.surface = surface;
-	if (window.min_image_count < surface_capabilities.minImageCount) {
+	swapchain_create_info.surface = p_window->surface;
+	if (p_window->min_image_count < surface_capabilities.minImageCount) {
 		swapchain_create_info.minImageCount = surface_capabilities.minImageCount;
-	} else if (surface_capabilities.maxImageCount != 0 && window.min_image_count > surface_capabilities.maxImageCount) {
+	} else if (surface_capabilities.maxImageCount != 0 && p_window->min_image_count > surface_capabilities.maxImageCount) {
 		swapchain_create_info.minImageCount = surface_capabilities.maxImageCount;
 	} else {
-		swapchain_create_info.minImageCount = window.min_image_count;
+		swapchain_create_info.minImageCount = p_window->min_image_count;
 	}
-	swapchain_create_info.imageFormat = window.swapchain_format.format;
-	swapchain_create_info.imageColorSpace = window.swapchain_format.colorSpace;
+	swapchain_create_info.imageFormat = p_window->swapchain_format.format;
+	swapchain_create_info.imageColorSpace = p_window->swapchain_format.colorSpace;
 	swapchain_create_info.imageArrayLayers = 1;
 	swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -403,7 +387,7 @@ bool VulkanEngine::create_swapchain(int p_width, int p_height) {
 	} else {
 		ERR_FAIL_MSG_RET(false, "No supported composite alpha mode found.");
 	}
-	swapchain_create_info.presentMode = window.swapchain_present_mode;
+	swapchain_create_info.presentMode = p_window->swapchain_present_mode;
 	swapchain_create_info.clipped = VK_TRUE;
 	swapchain_create_info.oldSwapchain = old_swapchain;
 	if (surface_capabilities.currentExtent.width == 0xffffffff) {
@@ -413,27 +397,27 @@ bool VulkanEngine::create_swapchain(int p_width, int p_height) {
 		swapchain_create_info.imageExtent.width = surface_capabilities.currentExtent.width;
 		swapchain_create_info.imageExtent.height = surface_capabilities.currentExtent.height;
 	}
-	window.width = static_cast<int>(swapchain_create_info.imageExtent.width);
-	window.height = static_cast<int>(swapchain_create_info.imageExtent.height);
-	ERR_FAIL_VK_RET(vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &window.swapchain), false, "Failed to create swapchain.");
-	DEBUG_NAME(window.swapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Window/Swapchain");
+	p_window->width = static_cast<int>(swapchain_create_info.imageExtent.width);
+	p_window->height = static_cast<int>(swapchain_create_info.imageExtent.height);
+	ERR_FAIL_VK_RET(vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &p_window->swapchain), false, "Failed to create swapchain.");
+	DEBUG_NAME(p_window->swapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Window/Swapchain");
 
-	ERR_FAIL_VK_RET(vkGetSwapchainImagesKHR(device, window.swapchain, &window.frames_count, nullptr), false, "Failed to get swapchain images.");
-	std::vector<VkImage> swapchain_images(window.frames_count);
-	ERR_FAIL_VK_RET(vkGetSwapchainImagesKHR(device, window.swapchain, &window.frames_count, swapchain_images.data()), false, "Failed to get swapchain images.");
+	ERR_FAIL_VK_RET(vkGetSwapchainImagesKHR(device, p_window->swapchain, &p_window->frames_count, nullptr), false, "Failed to get swapchain images.");
+	std::vector<VkImage> swapchain_images(p_window->frames_count);
+	ERR_FAIL_VK_RET(vkGetSwapchainImagesKHR(device, p_window->swapchain, &p_window->frames_count, swapchain_images.data()), false, "Failed to get swapchain images.");
 
-	window.semaphores_count = window.frames_count + 1;
-	window.frames.resize(window.frames_count);
-	window.semaphores.resize(window.semaphores_count);
-	for (uint32_t i = 0; i < window.frames_count; i++) {
-		window.frames[i].image = swapchain_images[i];
+	p_window->semaphores_count = p_window->frames_count + 1;
+	p_window->frames.resize(p_window->frames_count);
+	p_window->semaphores.resize(p_window->semaphores_count);
+	for (uint32_t i = 0; i < p_window->frames_count; i++) {
+		p_window->frames[i].image = swapchain_images[i];
 	}
 	if (old_swapchain) {
 		vkDestroySwapchainKHR(device, old_swapchain, nullptr);
 	}
 
 	// TODO: Disable for dynamic rendering
-	create_render_pass();
+	create_render_pass(p_window);
 
 	VkImageSubresourceRange image_range{};
 	image_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -445,43 +429,43 @@ bool VulkanEngine::create_swapchain(int p_width, int p_height) {
 	VkImageViewCreateInfo image_view_create_info{};
 	image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	image_view_create_info.format = window.swapchain_format.format;
+	image_view_create_info.format = p_window->swapchain_format.format;
 	image_view_create_info.components.r = VK_COMPONENT_SWIZZLE_R;
 	image_view_create_info.components.g = VK_COMPONENT_SWIZZLE_G;
 	image_view_create_info.components.b = VK_COMPONENT_SWIZZLE_B;
 	image_view_create_info.components.a = VK_COMPONENT_SWIZZLE_A;
 	image_view_create_info.subresourceRange = image_range;
-	for (uint32_t i = 0; i < window.frames_count; i++) {
-		image_view_create_info.image = window.frames[i].image;
-		ERR_FAIL_VK_RET(vkCreateImageView(device, &image_view_create_info, nullptr, &window.frames[i].image_view), false, "Failed to create image view.");
-		DEBUG_NAME(window.frames[i].image_view, VK_OBJECT_TYPE_IMAGE_VIEW, "Window/Frames/" + itos(i) + "/ImageView");
+	for (uint32_t i = 0; i < p_window->frames_count; i++) {
+		image_view_create_info.image = p_window->frames[i].image;
+		ERR_FAIL_VK_RET(vkCreateImageView(device, &image_view_create_info, nullptr, &p_window->frames[i].image_view), false, "Failed to create image view.");
+		DEBUG_NAME(p_window->frames[i].image_view, VK_OBJECT_TYPE_IMAGE_VIEW, "Window/Frames/" + itos(i) + "/ImageView");
 	}
 
 	// TODO: Disable for dynamic rendering
 	VkFramebufferCreateInfo framebuffer_create_info{};
 	framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebuffer_create_info.renderPass = window.render_pass;
+	framebuffer_create_info.renderPass = p_window->render_pass;
 	framebuffer_create_info.attachmentCount = 1;
 	framebuffer_create_info.width = swapchain_create_info.imageExtent.width;
 	framebuffer_create_info.height = swapchain_create_info.imageExtent.height;
 	framebuffer_create_info.layers = 1;
-	for (uint32_t i = 0; i < window.frames_count; i++) {
-		framebuffer_create_info.pAttachments = &window.frames[i].image_view;
-		ERR_FAIL_VK_RET(vkCreateFramebuffer(device, &framebuffer_create_info, nullptr, &window.frames[i].frame_buffer), false, "Failed to create frame buffer.");
-		DEBUG_NAME(window.frames[i].frame_buffer, VK_OBJECT_TYPE_FRAMEBUFFER, "Window/Frames/" + itos(i) + "/FrameBuffer");
+	for (uint32_t i = 0; i < p_window->frames_count; i++) {
+		framebuffer_create_info.pAttachments = &p_window->frames[i].image_view;
+		ERR_FAIL_VK_RET(vkCreateFramebuffer(device, &framebuffer_create_info, nullptr, &p_window->frames[i].frame_buffer), false, "Failed to create frame buffer.");
+		DEBUG_NAME(p_window->frames[i].frame_buffer, VK_OBJECT_TYPE_FRAMEBUFFER, "Window/Frames/" + itos(i) + "/FrameBuffer");
 	}
 	return true;
 }
-bool VulkanEngine::create_command_buffers() {
-	for (uint32_t i = 0; i < window.frames_count; i++) {
-		Frame *frame = &window.frames[i];
+bool VulkanEngine::create_command_buffers(Window *p_window) {
+	for (uint32_t i = 0; i < p_window->frames_count; i++) {
+		Frame *frame = &p_window->frames[i];
 
 		VkCommandPoolCreateInfo command_pool_create_info{};
 		command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		command_pool_create_info.flags = 0;
 		command_pool_create_info.queueFamilyIndex = queue_family;
 		ERR_FAIL_VK_RET(vkCreateCommandPool(device, &command_pool_create_info, nullptr, &frame->command_pool), false, "Failed to create command pool.");
-		DEBUG_NAME(window.frames[i].command_pool, VK_OBJECT_TYPE_COMMAND_POOL, "Window/Frames/" + itos(i) + "/CommandPool");
+		DEBUG_NAME(p_window->frames[i].command_pool, VK_OBJECT_TYPE_COMMAND_POOL, "Window/Frames/" + itos(i) + "/CommandPool");
 
 		VkCommandBufferAllocateInfo command_buffer_allocate_info{};
 		command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -489,36 +473,36 @@ bool VulkanEngine::create_command_buffers() {
 		command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		command_buffer_allocate_info.commandBufferCount = 1;
 		ERR_FAIL_VK_RET(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &frame->command_buffer), false, "Failed to allocate command buffer.");
-		DEBUG_NAME(window.frames[i].command_buffer, VK_OBJECT_TYPE_COMMAND_BUFFER, "Window/Frames/" + itos(i) + "/CommandBuffer");
+		DEBUG_NAME(p_window->frames[i].command_buffer, VK_OBJECT_TYPE_COMMAND_BUFFER, "Window/Frames/" + itos(i) + "/CommandBuffer");
 
 		VkFenceCreateInfo fence_create_info{};
 		fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 		ERR_FAIL_VK_RET(vkCreateFence(device, &fence_create_info, nullptr, &frame->fence), false, "Failed to create fence.");
-		DEBUG_NAME(window.frames[i].fence, VK_OBJECT_TYPE_FENCE, "Window/Frames/" + itos(i) + "/Fence");
+		DEBUG_NAME(p_window->frames[i].fence, VK_OBJECT_TYPE_FENCE, "Window/Frames/" + itos(i) + "/Fence");
 	}
 
-	for (uint32_t i = 0; i < window.semaphores_count; i++) {
-		FrameSemaphores *semaphores = &window.semaphores[i];
+	for (uint32_t i = 0; i < p_window->semaphores_count; i++) {
+		FrameSemaphores *semaphores = &p_window->semaphores[i];
 
 		VkSemaphoreCreateInfo semaphore_create_info{};
 		semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 		ERR_FAIL_VK_RET(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &semaphores->image_acquired), false, "Failed to create image acquired semaphore.");
 		ERR_FAIL_VK_RET(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &semaphores->render_complete), false, "Failed to create render complete semaphore.");
-		DEBUG_NAME(window.semaphores[i].image_acquired, VK_OBJECT_TYPE_SEMAPHORE, "Window/Semaphores/" + itos(i) + "/ImageAcquired");
-		DEBUG_NAME(window.semaphores[i].render_complete, VK_OBJECT_TYPE_SEMAPHORE, "Window/Semaphores/" + itos(i) + "/RenderComplete");
+		DEBUG_NAME(p_window->semaphores[i].image_acquired, VK_OBJECT_TYPE_SEMAPHORE, "Window/Semaphores/" + itos(i) + "/ImageAcquired");
+		DEBUG_NAME(p_window->semaphores[i].render_complete, VK_OBJECT_TYPE_SEMAPHORE, "Window/Semaphores/" + itos(i) + "/RenderComplete");
 	}
-	window.frame_index = 0;
-	window.semaphore_index = 0;
-	window.frame_acquired = false;
-	window.swapchain_rebuild = false;
+	p_window->frame_index = 0;
+	p_window->semaphore_index = 0;
+	p_window->frame_acquired = false;
+	p_window->swapchain_rebuild = false;
 	return true;
 }
-bool VulkanEngine::create_window(int p_width, int p_height) {
+bool VulkanEngine::create_window(Window *p_window, int p_width, int p_height) {
 	DEBUG_BEGIN_QUEUE_REGION("create_window", 0.349f, 0.835f, 0.878f, 1.f);
-	ERR_FAIL_COND_RET(!create_swapchain(p_width, p_height), false, "Failed to create swapchain.");
-	ERR_FAIL_COND_RET(!create_command_buffers(), false, "Failed to create frame synchronization resources.");
-	ERR_FAIL_COND_RET(window.min_image_count < 2, false, "Incorrect min_image_count currently " + itos(window.min_image_count) + " should be at least 2.");
+	ERR_FAIL_COND_RET(!create_swapchain(p_window, p_width, p_height), false, "Failed to create swapchain.");
+	ERR_FAIL_COND_RET(!create_command_buffers(p_window), false, "Failed to create frame synchronization resources.");
+	ERR_FAIL_COND_RET(p_window->min_image_count < 2, false, "Incorrect min_image_count currently " + itos(p_window->min_image_count) + " should be at least 2.");
 	DEBUG_END_QUEUE_REGION();
 	return true;
 }
