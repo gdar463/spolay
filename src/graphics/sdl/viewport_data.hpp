@@ -29,7 +29,7 @@ struct SdlViewportData {
 
 	void cleanup() {
 		if (window_owned) {
-			if (!window) {
+			if (window) {
 				SDL_HideWindow(window);
 				SDL_DestroyWindow(window);
 				window = nullptr;

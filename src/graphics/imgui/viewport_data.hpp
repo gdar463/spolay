@@ -24,15 +24,16 @@
 
 struct WindowRenderBuffers {
 	std::vector<RenderBuffers> buffers;
-	uint32_t count;
-	uint32_t index;
+	uint32_t count = 0;
+	uint32_t index = 0;
 
 	void cleanup(VmaAllocator p_allocator) {
-		if (count > 0) {
-			for (uint32_t i = 0; i < count; i++) {
-				buffers[i].cleanup(p_allocator);
-			}
+		index = 0;
+		count = 0;
+		for (RenderBuffers &buffer : buffers) {
+			buffer.cleanup(p_allocator);
 		}
+		buffers.clear();
 	}
 };
 
@@ -42,6 +43,6 @@ struct ImguiViewportData {
 
 	void cleanup(VkInstance p_instance, VkDevice p_device, VmaAllocator p_allocator) {
 		render_buffers.cleanup(p_allocator);
-		window.cleanup(p_instance, p_device);
+		window.cleanup(p_instance, p_device, true);
 	}
 };

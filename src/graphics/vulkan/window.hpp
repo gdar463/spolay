@@ -62,14 +62,18 @@ struct Window {
 	uint32_t semaphore_index = 0;
 	VkClearValue clear_value{ VkClearColorValue({ .int32 = { 14, 14, 14, 255 } }) };
 
-	void cleanup(VkInstance p_instance, VkDevice p_device, bool p_delete_all = false) {
+	void cleanup(VkInstance p_instance, VkDevice p_device, bool p_delete_all = false, bool p_destroy_sdl_window = false) {
+		for (FrameSemaphores &semaphore : semaphores) {
+			semaphore.cleanup(p_device);
+		}
+		semaphores.clear();
+		semaphores_count = 0;
+		for (Frame &frame : frames) {
+			frame.cleanup(p_device);
+		}
+		frames.clear();
+		frames_count = 0;
 		if (render_pass != VK_NULL_HANDLE) {
-			for (uint32_t i = 0; i < semaphores_count; i++) {
-				semaphores[i].cleanup(p_device);
-			}
-			for (uint32_t i = 0; i < frames_count; i++) {
-				frames[i].cleanup(p_device);
-			}
 			vkDestroyRenderPass(p_device, render_pass, nullptr);
 			render_pass = VK_NULL_HANDLE;
 		}
@@ -82,10 +86,12 @@ struct Window {
 				SDL_Vulkan_DestroySurface(p_instance, surface, nullptr);
 				surface = VK_NULL_HANDLE;
 			}
-			if (sdl_window) {
-				SDL_HideWindow(sdl_window);
-				SDL_DestroyWindow(sdl_window);
-				sdl_window = nullptr;
+			if (p_destroy_sdl_window) {
+				if (sdl_window) {
+					SDL_HideWindow(sdl_window);
+					SDL_DestroyWindow(sdl_window);
+					sdl_window = nullptr;
+				}
 			}
 		}
 	}

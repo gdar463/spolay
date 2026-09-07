@@ -311,6 +311,13 @@ bool SdlEngine::process_event(SDL_Event *p_event) {
 			bd->mouse_pending_leave_frame = 0;
 			return true;
 		}
+		case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
+			if (!get_viewport_from_window_id(p_event->window.windowID)) {
+				break;
+			}
+			bd->mouse_pending_leave_frame = ImGui::GetFrameCount() + 2;
+			return true;
+		}
 		case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		case SDL_EVENT_WINDOW_FOCUS_LOST: {
 			ImGuiViewport *viewport = get_viewport_from_window_id(p_event->window.windowID);

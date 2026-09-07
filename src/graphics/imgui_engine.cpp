@@ -556,7 +556,7 @@ bool ImGuiEngine::render_draw_data(Window *p_window, ImDrawData *p_draw_data, Vk
 	ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
 	RenderState render_state;
 	render_state.command_buffer = p_command_buffer;
-	render_state.pipeline = bd->pipeline;
+	render_state.pipeline = (p_draw_data->OwnerViewport == ImGui::GetMainViewport()) ? bd->pipeline : bd->pipeline_for_viewports;
 	render_state.pipeline_layout = bd->pipeline_layout;
 	platform_io.Renderer_RenderState = &render_state;
 	bd->render_state = &render_state;
@@ -946,7 +946,7 @@ bool ImGuiEngine::update_texture(Window *p_window, ImTextureData *p_texture) {
 }
 void ImGuiEngine::setup_render_state(VkCommandBuffer p_command_buffer, ImDrawData *p_draw_data, RenderBuffers *p_rb, int p_width, int p_height) {
 	ImGuiBackendData *bd = get_backend_data();
-	vkCmdBindPipeline(p_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->pipeline);
+	vkCmdBindPipeline(p_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->render_state->pipeline);
 
 	if (p_draw_data->TotalVtxCount > 0) {
 		VkDeviceSize offset = 0;
@@ -988,6 +988,7 @@ void ImGuiEngine::create_window(ImGuiViewport *p_viewport) {
 	ImGuiBackendData *bd = get_backend_data();
 	ERR_FAIL_NULL(bd, "BackendData is null.");
 	ImguiViewportData *vd = new ImguiViewportData();
+	p_viewport->RendererUserData = vd;
 	VulkanEngine *vk = bd->vk;
 
 	SDL_Window *window = SDL_GetWindowFromID((intptr_t)p_viewport->PlatformHandle);
@@ -1008,6 +1009,7 @@ void ImGuiEngine::destroy_window(ImGuiViewport *p_viewport) {
 
 	ImguiViewportData *vd = (ImguiViewportData *)p_viewport->RendererUserData;
 	if (vd) {
+		ERR_FAIL_VK(vkDeviceWaitIdle(vk->device), "Failed to wait for the device before destroying viewport resources.");
 		vd->cleanup(vk->instance, vk->device, vk->allocator);
 		delete vd;
 		vd = nullptr;
@@ -1024,6 +1026,7 @@ void ImGuiEngine::set_window_size(ImGuiViewport *p_viewport, ImVec2 p_size) {
 		return;
 	}
 	vd->window.color_attachment.loadOp = (p_viewport->Flags & ImGuiViewportFlags_NoRendererClear) ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vd->render_buffers.cleanup(vk->allocator);
 	vk->create_window(&vd->window, p_size.x, p_size.y);
 }
 void ImGuiEngine::render_window(ImGuiViewport *p_viewport, void *) {

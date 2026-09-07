@@ -47,7 +47,7 @@ void SDL_AppQuit() {
 				state.imgui_engine->cleanup();
 				ImGui::DestroyContext();
 			}
-			state.window->cleanup(state.vk_engine->instance, state.vk_engine->device, true);
+			state.window->cleanup(state.vk_engine->instance, state.vk_engine->device, true, true);
 			ERR_FAIL_COND(!state.vk_engine->device, "VkDevice already destroyed?");
 			state.vk_engine->cleanup();
 		}
@@ -225,9 +225,10 @@ int main() {
 		ImDrawData *draw_data = ImGui::GetDrawData();
 		const bool is_minimized = (draw_data->DisplaySize.x <= 0.f || draw_data->DisplaySize.y <= 0.f);
 		if (!is_minimized) {
-			ImGui::UpdatePlatformWindows();
 			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_render(&window, draw_data, window.width, window.height), 1, "Failed to render frame.");
 			ERR_FAIL_COND_RET_SDL(!imgui_engine.frame_present(&window), 1, "Failed to present frame to queue.");
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
 		}
 		uint64_t end = SDL_GetTicks();
 		if (end - start < target_ms) {
