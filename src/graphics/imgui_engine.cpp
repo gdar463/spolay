@@ -1025,6 +1025,8 @@ void ImGuiEngine::set_window_size(ImGuiViewport *p_viewport, ImVec2 p_size) {
 	if (!vd) {
 		return;
 	}
+	ERR_FAIL_VK(vkDeviceWaitIdle(vk->device), "Failed to wait for idle device.");
+	ERR_FAIL_VK(vkQueueWaitIdle(vk->queue), "Failed to wait for idle queue.");
 	vd->window.color_attachment.loadOp = (p_viewport->Flags & ImGuiViewportFlags_NoRendererClear) ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_CLEAR;
 	vd->render_buffers.cleanup(vk->allocator);
 	vk->create_window(&vd->window, p_size.x, p_size.y);

@@ -500,6 +500,10 @@ bool VulkanEngine::create_command_buffers(Window *p_window) {
 }
 bool VulkanEngine::create_window(Window *p_window, int p_width, int p_height) {
 	DEBUG_BEGIN_QUEUE_REGION("create_window", 0.349f, 0.835f, 0.878f, 1.f);
+	ERR_FAIL_VK_RET(vkDeviceWaitIdle(device), false, "Failed to wait for idle device.");
+	if (queue != VK_NULL_HANDLE) {
+		ERR_FAIL_VK_RET(vkQueueWaitIdle(queue), false, "Failed to wait for idle queue.");
+	}
 	ERR_FAIL_COND_RET(!create_swapchain(p_window, p_width, p_height), false, "Failed to create swapchain.");
 	ERR_FAIL_COND_RET(!create_command_buffers(p_window), false, "Failed to create frame synchronization resources.");
 	ERR_FAIL_COND_RET(p_window->min_image_count < 2, false, "Incorrect min_image_count currently " + itos(p_window->min_image_count) + " should be at least 2.");
