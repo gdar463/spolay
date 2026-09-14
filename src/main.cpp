@@ -70,7 +70,7 @@ int main() {
 	ERR_FAIL_COND_RET(!SDL_Init(SDL_INIT_VIDEO), -1, SDL_GetError());
 
 	state.main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-	SDL_Window *sdl_window = SDL_CreateWindow(APP_NAME, (int)(1280_scaled), (int)(720_scaled), APP_SDL_FLAGS);
+	SDL_Window *sdl_window = SDL_CreateWindow(APP_NAME, (int)(400_scaled), (int)(220_scaled), APP_SDL_FLAGS);
 	ERR_FAIL_NULL_RET_SDL(sdl_window, -1, SDL_GetError());
 	Window window{};
 	window.sdl_window = sdl_window;
@@ -156,26 +156,40 @@ int main() {
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings;
 		if (ImGui::Begin("SpolayMainWindow", nullptr, window_flags)) {
 			ImGui::PopStyleVar(3);
 
 			if (ImGui::BeginMainMenuBar()) {
-				ImGui::PopStyleVar(2);
 				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_MenuBarBg));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabActive));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabHovered));
+				ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetColorU32(ImGuiCol_MenuBarBg));
+				ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabActive));
+				ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabHovered));
 				state.main_menu_bar.height = ImGui::GetCurrentWindowRead()->MenuBarHeight;
 
 				ImVec2 buttonSize = ImVec2(state.main_menu_bar.height * 2.f, state.main_menu_bar.height - 1);
+				if (ImGui::BeginPopupMenuEx(ImGui::GetID("##Settings"), "##Settings", ImGuiWindowFlags_ChildMenu | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNavFocus)) {
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(8, 4));
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 0));
+					if (ImGui::MenuItem("Always on Top", "", &state.always_on_top)) {
+						ERR_FAIL_COND_RET_SDL(!SDL_SetWindowAlwaysOnTop(window.sdl_window, state.always_on_top), 999, SDL_GetError());
+					}
+					ImGui::PopStyleVar(2);
+					ImGui::EndPopup();
+				}
 
-				if (ImGui::Button("Demo", buttonSize)) {
+				ImGui::SetCursorPosX(0);
+				if (ImGui::Button("Settings", ImVec2(0, buttonSize.y))) {
+					ImGui::OpenPopup("##Settings");
+				}
+				if (ImGui::Button("Demo", ImVec2(0, buttonSize.y))) {
 					state.show_demo = !state.show_demo;
 				}
 
-				// No idea why, but there's a small edge on the left of 8px
-				state.main_menu_bar.left_edge = ImGui::GetCursorPosX() - 8;
+				state.main_menu_bar.left_edge = ImGui::GetCursorPosX();
 
 				buttonSize.x = state.main_menu_bar.height * 1.5f;
 				state.main_menu_bar.right_edge = ImGui::GetWindowWidth() - buttonSize.x * 2;
@@ -192,7 +206,7 @@ int main() {
 					return 0;
 				}
 
-				ImGui::PopStyleColor(5);
+				ImGui::PopStyleColor(8);
 				ImGui::PopStyleVar();
 
 				ImGui::SetCursorPosX(state.main_menu_bar.left_edge);
@@ -212,10 +226,9 @@ int main() {
 					ImGui::EndPopup();
 				}
 				ImGui::EndMainMenuBar();
-			} else {
-				ImGui::PopStyleVar(2);
 			}
 
+			ImGui::PopStyleVar(2);
 			ImGui::End();
 		} else {
 			ImGui::PopStyleVar(5);

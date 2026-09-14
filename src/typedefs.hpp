@@ -48,6 +48,7 @@ struct AppState {
 	ImGuiEngine *imgui_engine = nullptr;
 	bool done = false;
 	bool show_demo = false;
+	bool always_on_top = false;
 	MainMenuBarState main_menu_bar{};
 };
 
