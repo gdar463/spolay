@@ -28,6 +28,14 @@ enum MouseCaptureMode {
 	MouseCaptureMode_Disabled
 };
 
+enum VideoDriver {
+	VideoDriver_Other,
+	VideoDriver_X11,
+	VideoDriver_Wayland,
+	VideoDriver_Cocoa, // MacOS
+	VideoDriver_Windows,
+};
+
 struct SdlBackendData {
 	SDL_Window *window = nullptr;
 	SDL_WindowID window_id = 0;
@@ -44,6 +52,8 @@ struct SdlBackendData {
 	int mouse_buttons_down = 0;
 	int mouse_pending_leave_frame = 0;
 	MouseCaptureMode mouse_capture_mode;
+
+	VideoDriver video_driver = VideoDriver_Other;
 
 	void cleanup() {
 		if (clipboard_text) {

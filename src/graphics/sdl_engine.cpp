@@ -101,6 +101,19 @@ bool SdlEngine::setup(SDL_Window *p_window) {
 
 	ERR_FAIL_COND_RET(!setup_multi_viewport(p_window), false, "Failed to setup multi viewport support.");
 
+	const char *video_driver = SDL_GetCurrentVideoDriver();
+	ERR_FAIL_NULL_RET(video_driver, false, "Failed to retrieve video driver.");
+
+	if (strcmp(video_driver, "x11")) {
+		bd->video_driver = VideoDriver_X11;
+	} else if (strcmp(video_driver, "wayland")) {
+		bd->video_driver = VideoDriver_Wayland;
+	} else if (strcmp(video_driver, "cocoa")) {
+		bd->video_driver = VideoDriver_Cocoa;
+	} else if (strcmp(video_driver, "windows")) {
+		bd->video_driver = VideoDriver_Windows;
+	}
+
 	bd = nullptr;
 	return true;
 }
@@ -904,6 +917,12 @@ ImGuiKey SdlEngine::sdl_key_to_imgui_key(SDL_Keycode p_keycode, SDL_Scancode p_s
 			break;
 	}
 	return ImGuiKey_None;
+}
+
+VideoDriver SdlEngine::get_video_driver() {
+	SdlBackendData *bd = get_backend_data();
+	ERR_FAIL_NULL_RET(bd, VideoDriver_Other, "BackendData is null.");
+	return bd->video_driver;
 }
 
 SdlBackendData *SdlEngine::get_backend_data() {

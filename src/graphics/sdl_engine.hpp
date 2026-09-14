@@ -63,6 +63,8 @@ public:
 	static ImGuiViewport *get_viewport_from_window_id(SDL_WindowID p_id);
 	static ImGuiKey sdl_key_to_imgui_key(SDL_Keycode p_keycode, SDL_Scancode p_scancode);
 
+	static VideoDriver get_video_driver();
+
 	static void cleanup();
 
 private:
