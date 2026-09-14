@@ -69,7 +69,11 @@ target_link_libraries(spolay PRIVATE
     glm::glm
     imgui
     libdeflate_static
-    embdfs-lib)
+    embdfs-lib
+    httplib::httplib)
+if(WIN32)
+    target_link_libraries(spolay PRIVATE ws2_32 crypt32)
+endif()
 
 target_compile_features(spolay PUBLIC cxx_std_23)
 
