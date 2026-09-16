@@ -27,6 +27,7 @@
 #include "graphics/vulkan/window.hpp"
 
 #define APP_NAME "Spolay"
+#define APP_VERSION "0.1.0"
 #define APP_VULKAN_API_VERSION VK_API_VERSION_1_3
 #define APP_SDL_FLAGS SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY
 
