@@ -78,7 +78,8 @@ target_link_libraries(spolay PRIVATE
     libdeflate_static
     embdfs-lib
     httplib::httplib
-    OpenSSL::Crypto)
+    OpenSSL::Crypto
+    nlohmann_json::nlohmann_json)
 
 if(WIN32)
     target_link_libraries(spolay PRIVATE ws2_32 crypt32)
