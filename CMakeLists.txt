@@ -70,7 +70,9 @@ target_link_libraries(spolay PRIVATE
     imgui
     libdeflate_static
     embdfs-lib
-    httplib::httplib)
+    httplib::httplib
+    OpenSSL::Crypto)
+
 if(WIN32)
     target_link_libraries(spolay PRIVATE ws2_32 crypt32)
 endif()
