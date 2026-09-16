@@ -41,6 +41,13 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 ###
 find_package(Vulkan REQUIRED)
 
+# to use openssl-mingw when cross-compiling for windows
+include(cmake/openssl.cmake)
+find_package(OpenSSL QUIET)
+if (NOT OpenSSL_FOUND)
+    message(FATAL_ERROR "Failed to find OpenSSL, if cross-compiling for windows big problemo.")
+endif()
+
 # moved setup to separate Lists.txt to shut up all warnings
 add_subdirectory(third_party)
 

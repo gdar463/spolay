@@ -33,8 +33,6 @@ target_link_libraries(imgui PRIVATE SDL3::SDL3 volk::volk Vulkan::Vulkan)
 set(EMBDFS_PATH "${PROJECT_SOURCE_DIR}/assets")
 add_subdirectory(embdfs EXCLUDE_FROM_ALL)
 
-add_subdirectory(openssl-mingw)
-
 set(HTTPLIB_INSTALL OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_TEST OFF CACHE BOOL "" FORCE)
 set(HTTPLIB_REQUIRE_OPENSSL ON CACHE BOOL "" FORCE)

@@ -24,8 +24,3 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CROSSCOMPILING)
     set(OPENSSL_ROOT_DIR "${OPENSSL_DOWNLOAD_DIR}/mingw64")
     set(OPENSSL_USE_STATIC_LIBS ON)
 endif()
-
-find_package(OpenSSL QUIET)
-if (NOT OpenSSL_FOUND)
-    message(FATAL_ERROR "Failed to find OpenSSL, if cross-compiling for windows big problemo.")
-endif()
