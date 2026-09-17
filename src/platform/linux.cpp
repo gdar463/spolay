@@ -26,6 +26,7 @@
 bool Platform::begin_native_window(SDL_Window *p_window) {
 	return true;
 }
+void Platform::open_url(std::string &p_url) {}
 #pragma clang diagnostic pop
 
 #endif

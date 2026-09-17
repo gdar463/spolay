@@ -19,9 +19,12 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#include <string>
+
 struct SDL_Window;
 
 class Platform {
 public:
 	static bool begin_native_window(SDL_Window *p_window);
+	static void open_url(std::string &p_url);
 };

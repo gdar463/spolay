@@ -40,4 +40,7 @@ bool Platform::begin_native_window(SDL_Window *p_window) {
 	SetWindowLongPtr(hwnd, GWL_EXSTYLE, ex_style);
 	return true;
 }
+void Platform::open_url(std::string &p_url) {
+	ShellExecute(nullptr, nullptr, p_url.c_str(), nullptr, nullptr, 0);
+}
 #endif
