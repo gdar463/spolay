@@ -19,8 +19,7 @@ file(GLOB IMGUI_SOURCES
     ${IMGUI_DIR}/imgui_draw.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp)
+    ${IMGUI_DIR}/imgui_widgets.cpp)
 
 add_library(imgui STATIC ${IMGUI_SOURCES})
 target_compile_definitions(imgui PRIVATE
