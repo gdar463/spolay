@@ -1,4 +1,4 @@
-#ifdef WIN32
+#if defined(WIN32)
 
 /**
  * windows.cpp

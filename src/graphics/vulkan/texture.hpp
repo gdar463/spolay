@@ -26,7 +26,7 @@
 #include "vma.hpp"
 
 struct Texture {
-#ifdef DEBUG
+#if defined(DEBUG)
 	const char *path = nullptr;
 #endif
 	VmaAllocation allocation = VK_NULL_HANDLE;
@@ -41,7 +41,7 @@ struct Texture {
 	}
 
 	void cleanup(VkDevice p_device, VmaAllocator p_allocator, VkDescriptorPool p_descriptor_pool) {
-#ifdef DEBUG
+#if defined(DEBUG)
 		if (path != nullptr) {
 			delete[] path;
 			path = nullptr;

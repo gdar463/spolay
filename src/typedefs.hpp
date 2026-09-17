@@ -78,12 +78,12 @@ const char *itoa(int64_t p_num, int p_base = 10);
 #define unlikely(x) x
 #endif
 
-#ifndef _STR
+#if !defined(_STR)
 #define _STR(m_x) #m_x
 #define _MKSTR(m_x) _STR(m_x)
 #endif
 
-#ifndef _NO_INLINE_
+#if !defined(_NO_INLINE_)
 #if defined(__GNUC__)
 #define _NO_INLINE_ __attribute__((noinline))
 #elif defined(_MSC_VER)

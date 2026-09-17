@@ -31,8 +31,7 @@
 #include "graphics/vulkan/window.hpp"
 #include "vma.hpp"
 
-#ifdef DEBUG
-#ifndef NO_DEBUG_UTILS
+#if defined(DEBUG) && !defined(NO_DEBUG_UTILS)
 #include <imgui.h>
 #define DEBUG_NAME(m_handle, m_type, m_name) set_debug_name((uint64_t)m_handle, m_type, m_name)
 #define DEBUG_NAME_VK(m_handle, m_type, m_name) vk->set_debug_name((uint64_t)m_handle, m_type, m_name)
@@ -56,27 +55,13 @@
 
 #define DEBUG_NAME_VMA(m__, m___, m____)
 #endif
-#else
-#define DEBUG_NAME(m__, m___, m____)
-#define DEBUG_NAME_VK(m__, m___, m____)
-#define DEBUG_BEGIN_QUEUE_REGION(m__, ...)
-#define DEBUG_BEGIN_QUEUE_REGION_VK(m__, ...)
-#define DEBUG_INSERT_QUEUE_MARKER(m__, ...)
-#define DEBUG_INSERT_QUEUE_MARKER_VK(m__, ...)
-#define DEBUG_END_QUEUE_REGION()
-#define DEBUG_END_QUEUE_REGION_VK()
-
-#define DEBUG_NAME_VMA(m__, m___, m____)
-#endif
 
 const std::vector<const char *> optional_layers{
-#ifdef DEBUG
-#ifndef NO_VALIDATION_LAYER
+#if defined(DEBUG) && !defined(NO_VALIDATION_LAYER)
 	"VK_LAYER_KHRONOS_validation",
 #endif
-#ifndef NO_CRASH_DIAGNOSTIC_LAYER
+#if defined(DEBUG) && !defined(NO_CRASH_DIAGNOSTIC_LAYER)
 	"VK_LAYER_LUNARG_crash_diagnostic",
-#endif
 #endif
 };
 
@@ -89,10 +74,8 @@ const std::vector<const char *> essential_device_extensions{
 const std::vector<const char *> optional_instance_extensions{
 	VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, // used in VulkanEngine::pick_physical_device
 	VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, // used in VulkanEngine::create_swapchain
-#ifdef DEBUG
-#ifndef NO_DEBUG_UTILS
+#if defined(DEBUG) && !defined(NO_DEBUG_UTILS)
 	VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-#endif
 #endif
 };
 
@@ -102,17 +85,15 @@ const std::vector<const char *> optional_device_extensions{
 	VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 	VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
 	VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME,
-#ifdef DEBUG
-#ifndef NO_CRASH_DIAGNOSTIC_LAYER // technically doesn't need to be only for debug, but for now they're only used for the layer
+#if defined(DEBUG) && !defined(NO_CRASH_DIAGNOSTIC_LAYER) // technically doesn't need to be only for debug, but for now they're only used for the layer
 	VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
 	VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME,
 	VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME,
 	VK_AMD_BUFFER_MARKER_EXTENSION_NAME,
 	VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME,
 	VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
-#ifndef NO_DEBUG_UTILS
+#if !defined(NO_DEBUG_UTILS)
 	VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME
-#endif
 #endif
 #endif
 };
@@ -151,8 +132,7 @@ public:
 
 	void cleanup();
 
-#ifdef DEBUG
-#ifndef NO_DEBUG_UTILS
+#if defined(DEBUG) && !defined(NO_DEBUG_UTILS)
 	void set_debug_name(uint64_t p_handle, VkObjectType p_type, const char *p_name);
 	void set_debug_name(uint64_t p_handle, VkObjectType p_type, std::string p_name);
 
@@ -161,7 +141,6 @@ public:
 	void insert_debug_queue_label(const char *p_name, const ImVec4 p_color);
 	void insert_debug_queue_label(std::string p_name, const ImVec4 p_color);
 	void end_debug_queue_region();
-#endif
 #endif
 
 private:

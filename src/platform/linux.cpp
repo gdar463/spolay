@@ -1,4 +1,4 @@
-#ifdef LINUX
+#if defined(LINUX)
 
 /**
  * linux.cpp

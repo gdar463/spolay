@@ -24,7 +24,7 @@
 #include <imgui.h>
 
 #include "SDL3/SDL_vulkan.h"
-#ifdef WIN32
+#if defined(WIN32)
 #include <windows.h>
 #endif
 
@@ -186,7 +186,7 @@ bool SdlEngine::setup_viewport(ImGuiViewport *p_viewport, SDL_Window *p_window) 
 	p_viewport->PlatformHandle = (void *)(intptr_t)SDL_GetWindowID(p_window);
 	ERR_FAIL_NULL_RET(p_viewport->PlatformHandle, false, SDL_GetError());
 	p_viewport->PlatformHandleRaw = nullptr;
-#ifdef WIN32
+#if defined(WIN32)
 	p_viewport->PlatformHandleRaw = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(p_window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 #endif
 	return true;
@@ -426,7 +426,7 @@ void SdlEngine::show_window(ImGuiViewport *p_viewport) {
 	SdlViewportData *vd = (SdlViewportData *)p_viewport->PlatformUserData;
 	ERR_FAIL_NULL(vd, "ViewportData is null.");
 
-#ifdef WIN32
+#if defined(WIN32)
 	HWND hwnd = (HWND)p_viewport->PlatformHandleRaw;
 
 	LONG ex_style = GetWindowLong(hwnd, GWL_EXSTYLE);

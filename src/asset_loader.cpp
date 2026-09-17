@@ -55,7 +55,7 @@ bool AssetLoader::load_textures(ImGuiEngine *p_imgui) {
 		const embdfs::Resource *texture_resource = embdfs::get(texture_path);
 		Texture *texture = p_imgui->load_texture(texture_resource->data(), texture_resource->size());
 		ERR_FAIL_NULL_RET(texture, false, "Failed to load texture \"" + std::string(texture_path) + "\".");
-#ifdef DEBUG
+#if defined(DEBUG)
 		texture->path = new char[strlen(texture_path)]{};
 		texture->path = strdup(texture_path);
 #endif

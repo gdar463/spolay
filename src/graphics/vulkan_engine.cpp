@@ -23,7 +23,7 @@
 
 #include <cstring>
 
-#ifdef DEBUG
+#if defined(DEBUG)
 #include <iostream>
 #endif
 
@@ -36,7 +36,7 @@ void VulkanEngine::cleanup() {
 				vkDestroyPipelineCache(device, pipeline_cache, nullptr);
 			}
 			if (allocator != VK_NULL_HANDLE) {
-#ifdef DEBUG
+#if defined(DEBUG)
 				char *stats_string = nullptr;
 				vmaBuildStatsString(allocator, &stats_string, VK_TRUE);
 				std::cout << "VmaStats: " << stats_string << std::endl;
@@ -511,8 +511,7 @@ bool VulkanEngine::create_window(Window *p_window, int p_width, int p_height) {
 	return true;
 }
 
-#ifdef DEBUG
-#ifndef NO_DEBUG_UTILS
+#if defined(DEBUG) && !defined(NO_DEBUG_UTILS)
 void VulkanEngine::set_debug_name(uint64_t p_handle, VkObjectType p_type, const char *p_name) {
 	VkDebugUtilsObjectNameInfoEXT debug_utils_object_name_info{};
 	debug_utils_object_name_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
@@ -575,7 +574,6 @@ void VulkanEngine::insert_debug_queue_label(std::string p_name, const ImVec4 p_c
 void VulkanEngine::end_debug_queue_region() {
 	vkQueueEndDebugUtilsLabelEXT(queue);
 }
-#endif
 #endif
 
 bool VulkanEngine::is_layer_available(std::vector<VkLayerProperties> &p_layer_properties, const char *p_layer) {

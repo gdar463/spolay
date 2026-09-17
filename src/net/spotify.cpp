@@ -171,7 +171,7 @@ const char *SpotifyAPI::get_client_id() {
 	if (client_id) {
 		return client_id;
 	}
-#ifdef ENV_HPP
+#if defined(ENV_HPP)
 	return SPOTIFY_CLIENT_ID;
 #else
 	ERR_FAIL_MSG_RET(nullptr, "Spotify Client ID has not been set.");
