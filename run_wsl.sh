@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+if [[ ${1,,} == "--help" ]] || [[ ${1,,} == "-h" ]] || [[ ${1,,} == "-?" ]]; then
+    echo "usage: run_wsl.sh [--help] [release] [refresh_embdfs]\n"
+    echo "USE ARGS ONLY IN THE ORDER SHOWN"
+    exit 0
+fi
+
 if [[ ${1,,} == "release" ]]; then
     folder=build/windows/release
     shift
