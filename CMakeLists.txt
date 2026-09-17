@@ -79,10 +79,11 @@ target_link_libraries(spolay PRIVATE
     embdfs-lib
     httplib::httplib
     OpenSSL::Crypto
+    OpenSSL::SSL
     nlohmann_json::nlohmann_json)
 
 if(WIN32)
-    target_link_libraries(spolay PRIVATE ws2_32 crypt32)
+    target_link_libraries(spolay PRIVATE crypt32 ws2_32 wsock32)
 endif()
 
 target_compile_features(spolay PUBLIC cxx_std_23)

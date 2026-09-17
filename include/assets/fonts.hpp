@@ -22,6 +22,8 @@
 #define FONTS_NUNITO "fonts/Nunito.ttf"
 #define FONTS_NERDFONT "fonts/SymbolsNerdFont.ttf"
 
+#define ICON_FA_PLAY "\uf04b"
+#define ICON_FA_PAUSE "\uf04c"
 #define ICON_VS_CHROME_CLOSE "\xee\xaa\xb8"
 #define ICON_VS_CHROME_MAXIMIZE "\xee\xaa\xb9"
 #define ICON_VS_CHROME_MINIMIZE "\xee\xaa\xba"

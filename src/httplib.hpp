@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * rand.hpp
+ * httplib.hpp
  *
  * Copyright (C) 2026 gdar463 <dev@gdar463.com>
  *
@@ -19,17 +19,5 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
-
-class Random {
-public:
-	template <typename T>
-	static inline void generate_string(int p_size, T *r_out) {
-		for (int i = 0; i < p_size; i++) {
-			r_out[i] = characters[rand() % 62];
-		}
-	}
-
-private:
-	constexpr static const char *const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-};
+#undef CPPHTTPLIB_USE_NON_BLOCKING_GETADDRINFO
+#include <httplib.h>

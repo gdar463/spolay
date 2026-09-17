@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * rand.hpp
+ * pkce.hpp
  *
  * Copyright (C) 2026 gdar463 <dev@gdar463.com>
  *
@@ -19,17 +19,22 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
+#include <string>
 
-class Random {
+#define PKCE_CODE_LENGTH 120
+
+class PKCEClient {
 public:
-	template <typename T>
-	static inline void generate_string(int p_size, T *r_out) {
-		for (int i = 0; i < p_size; i++) {
-			r_out[i] = characters[rand() % 62];
-		}
-	}
+	/// Generates PKCE code and returns the sha256 hash of it
+	std::string generate_code();
+	/// Returns PKCE code (not its hash)
+	const char *get_current_code();
+
+	std::string base64_encode(const unsigned char *p_buf, size_t p_len);
+
+	void cleanup();
 
 private:
-	constexpr static const char *const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	unsigned char *current_code = nullptr;
+	unsigned char *hash = nullptr;
 };

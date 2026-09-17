@@ -1,8 +1,8 @@
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CROSSCOMPILING)
-    set(OPENSSL_ZST_URL "https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-openssl-3.6.4-1-any.pkg.tar.zst")
+    set(OPENSSL_ZST_URL "https://mirror.msys2.org/mingw/clang64/mingw-w64-clang-x86_64-openssl-3.6.4-1-any.pkg.tar.zst")
     set(OPENSSL_DOWNLOAD_DIR "${CMAKE_BINARY_DIR}/openssl_mingw")
 
-    if(NOT EXISTS "${OPENSSL_DOWNLOAD_DIR}/mingw64/lib/libcrypto.a")
+    if(NOT EXISTS "${OPENSSL_DOWNLOAD_DIR}/clang64/lib/libcrypto.a")
         message(STATUS "Downloading OpenSSL MinGW binaries...")
         file(MAKE_DIRECTORY "${OPENSSL_DOWNLOAD_DIR}")
 
@@ -21,6 +21,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CROSSCOMPILING)
         endif()
     endif()
 
-    set(OPENSSL_ROOT_DIR "${OPENSSL_DOWNLOAD_DIR}/mingw64")
+    set(OPENSSL_ROOT_DIR "${OPENSSL_DOWNLOAD_DIR}/clang64")
     set(OPENSSL_USE_STATIC_LIBS ON)
 endif()

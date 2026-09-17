@@ -29,6 +29,8 @@
 #include "graphics/imgui_engine.hpp"
 #include "graphics/sdl_engine.hpp"
 #include "graphics/vulkan_engine.hpp"
+#include "net/spotify.hpp"
+#include "platform/platform.hpp"
 
 AppState state{};
 float AppState::main_scale = 1.f;
@@ -52,6 +54,9 @@ void SDL_AppQuit() {
 			state.vk_engine->cleanup();
 		}
 		SDL_Quit();
+	}
+	if (state.spotify) {
+		state.spotify->cleanup();
 	}
 	embdfs::cleanup();
 }
@@ -102,6 +107,10 @@ int main() {
 	ERR_FAIL_COND_RET_SDL(!AssetLoader::load_textures(&imgui_engine), -1, "Failed to load initial textures.");
 
 	ERR_FAIL_COND_RET_SDL(!SDL_SetWindowHitTest(sdl_window, window_hit_test_callback, nullptr), -1, SDL_GetError());
+
+	SpotifyAPI spotify;
+	state.spotify = &spotify;
+	spotify.setup();
 
 	while (!state.done) {
 		uint64_t target_ms = 1000 / state.target_fps;
@@ -226,6 +235,18 @@ int main() {
 					ImGui::EndPopup();
 				}
 				ImGui::EndMainMenuBar();
+			}
+
+			if (ImGui::Button("URL")) {
+				std::string auth_url = spotify.get_auth_url();
+				std::cout << auth_url << std::endl;
+				Platform::open_url(auth_url);
+			}
+			if (ImGui::Button(ICON_FA_PLAY, ImVec2(16, 16))) {
+				spotify.play();
+			}
+			if (ImGui::Button(ICON_FA_PAUSE, ImVec2(16, 16))) {
+				spotify.pause();
 			}
 
 			ImGui::PopStyleVar(2);

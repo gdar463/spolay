@@ -34,6 +34,7 @@
 struct SDL_Window;
 class VulkanEngine;
 class ImGuiEngine;
+class SpotifyAPI;
 
 struct MainMenuBarState {
 	float height = 0.f;
@@ -47,6 +48,7 @@ struct AppState {
 	Window *window = nullptr;
 	VulkanEngine *vk_engine = nullptr;
 	ImGuiEngine *imgui_engine = nullptr;
+	SpotifyAPI *spotify = nullptr;
 	bool done = false;
 	bool show_demo = false;
 	bool always_on_top = false;

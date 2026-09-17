@@ -65,3 +65,6 @@ incoming
 
 ### Imgui ###
 imgui.ini
+
+### Env ###
+env.hpp

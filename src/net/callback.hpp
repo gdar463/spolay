@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * rand.hpp
+ * callback.hpp
  *
  * Copyright (C) 2026 gdar463 <dev@gdar463.com>
  *
@@ -19,17 +19,23 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
+#include <httplib.hpp>
 
-class Random {
+class SpotifyAPI;
+
+class CallbackServer {
 public:
-	template <typename T>
-	static inline void generate_string(int p_size, T *r_out) {
-		for (int i = 0; i < p_size; i++) {
-			r_out[i] = characters[rand() % 62];
-		}
-	}
+	httplib::Server *server;
+	static SpotifyAPI *spotify;
+	std::thread *listen_thread;
+
+	void setup(SpotifyAPI *p_spotify);
+	void start(int p_port);
+	void stop();
+	static void callback(const httplib::Request &p_req, httplib::Response &r_res);
+
+	void cleanup();
 
 private:
-	constexpr static const char *const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	static void real_start(httplib::Server *p_server, int p_port);
 };
